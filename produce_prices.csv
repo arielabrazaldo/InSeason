@@ -1,0 +1,493 @@
+produce,month,price_per_unit,unit
+avocado,1,2.05,unit
+avocado,2,1.93,unit
+avocado,3,1.86,unit
+avocado,4,1.62,unit
+avocado,5,1.62,unit
+avocado,6,1.56,unit
+avocado,7,2.0,unit
+avocado,8,1.86,unit
+avocado,9,1.92,unit
+avocado,10,1.54,unit
+avocado,11,2.06,unit
+avocado,12,1.98,unit
+strawberry,1,1.74,unit
+strawberry,2,1.74,unit
+strawberry,3,1.23,unit
+strawberry,4,1.32,unit
+strawberry,5,1.28,unit
+strawberry,6,1.23,unit
+strawberry,7,1.35,unit
+strawberry,8,1.17,unit
+strawberry,9,1.78,unit
+strawberry,10,1.81,unit
+strawberry,11,1.85,unit
+strawberry,12,1.98,unit
+blueberry,1,1.81,unit
+blueberry,2,1.84,unit
+blueberry,3,1.63,unit
+blueberry,4,1.85,unit
+blueberry,5,1.14,unit
+blueberry,6,1.1,unit
+blueberry,7,1.44,unit
+blueberry,8,1.45,unit
+blueberry,9,1.93,unit
+blueberry,10,1.73,unit
+blueberry,11,1.65,unit
+blueberry,12,1.88,unit
+raspberry,1,2.62,unit
+raspberry,2,2.85,unit
+raspberry,3,2.57,unit
+raspberry,4,2.25,unit
+raspberry,5,1.86,unit
+raspberry,6,2.1,unit
+raspberry,7,1.89,unit
+raspberry,8,2.02,unit
+raspberry,9,2.88,unit
+raspberry,10,2.66,unit
+raspberry,11,3.14,unit
+raspberry,12,3.02,unit
+blackberry,1,5.45,unit
+blackberry,2,5.13,unit
+blackberry,3,5.48,unit
+blackberry,4,4.58,unit
+blackberry,5,3.2,unit
+blackberry,6,3.04,unit
+blackberry,7,3.34,unit
+blackberry,8,3.41,unit
+blackberry,9,4.78,unit
+blackberry,10,5.38,unit
+blackberry,11,4.87,unit
+blackberry,12,4.79,unit
+tomato,1,3.05,unit
+tomato,2,3.51,unit
+tomato,3,3.0,unit
+tomato,4,3.64,unit
+tomato,5,3.49,unit
+tomato,6,2.11,unit
+tomato,7,1.97,unit
+tomato,8,2.54,unit
+tomato,9,2.46,unit
+tomato,10,2.48,unit
+tomato,11,3.49,unit
+tomato,12,3.0,unit
+cherry tomato,1,2.29,unit
+cherry tomato,2,2.69,unit
+cherry tomato,3,2.56,unit
+cherry tomato,4,2.41,unit
+cherry tomato,5,2.27,unit
+cherry tomato,6,1.65,unit
+cherry tomato,7,1.66,unit
+cherry tomato,8,1.88,unit
+cherry tomato,9,1.83,unit
+cherry tomato,10,1.96,unit
+cherry tomato,11,2.48,unit
+cherry tomato,12,2.3,unit
+heirloom tomato,1,4.27,unit
+heirloom tomato,2,4.09,unit
+heirloom tomato,3,4.27,unit
+heirloom tomato,4,4.04,unit
+heirloom tomato,5,4.06,unit
+heirloom tomato,6,3.98,unit
+heirloom tomato,7,2.43,unit
+heirloom tomato,8,2.5,unit
+heirloom tomato,9,2.43,unit
+heirloom tomato,10,4.16,unit
+heirloom tomato,11,3.88,unit
+heirloom tomato,12,4.05,unit
+spinach,1,3.17,unit
+spinach,2,3.34,unit
+spinach,3,3.7,unit
+spinach,4,3.15,unit
+spinach,5,4.45,unit
+spinach,6,4.67,unit
+spinach,7,4.53,unit
+spinach,8,5.33,unit
+spinach,9,5.21,unit
+spinach,10,3.57,unit
+spinach,11,3.82,unit
+spinach,12,3.75,unit
+kale,1,1.38,unit
+kale,2,1.24,unit
+kale,3,1.34,unit
+kale,4,1.38,unit
+kale,5,1.68,unit
+kale,6,1.61,unit
+kale,7,1.65,unit
+kale,8,1.72,unit
+kale,9,1.87,unit
+kale,10,1.36,unit
+kale,11,1.05,unit
+kale,12,1.23,unit
+lettuce,1,1.77,unit
+lettuce,2,1.71,unit
+lettuce,3,1.84,unit
+lettuce,4,2.19,unit
+lettuce,5,1.83,unit
+lettuce,6,2.77,unit
+lettuce,7,2.87,unit
+lettuce,8,2.67,unit
+lettuce,9,3.03,unit
+lettuce,10,2.21,unit
+lettuce,11,1.79,unit
+lettuce,12,1.93,unit
+arugula,1,1.48,unit
+arugula,2,1.36,unit
+arugula,3,1.63,unit
+arugula,4,1.58,unit
+arugula,5,2.03,unit
+arugula,6,2.14,unit
+arugula,7,2.44,unit
+arugula,8,2.12,unit
+arugula,9,2.08,unit
+arugula,10,1.57,unit
+arugula,11,1.81,unit
+arugula,12,1.46,unit
+broccoli,1,2.93,unit
+broccoli,2,2.5,unit
+broccoli,3,2.9,unit
+broccoli,4,2.6,unit
+broccoli,5,3.97,unit
+broccoli,6,3.97,unit
+broccoli,7,3.89,unit
+broccoli,8,3.53,unit
+broccoli,9,4.14,unit
+broccoli,10,2.56,unit
+broccoli,11,2.45,unit
+broccoli,12,2.33,unit
+cauliflower,1,2.6,unit
+cauliflower,2,2.1,unit
+cauliflower,3,2.47,unit
+cauliflower,4,2.26,unit
+cauliflower,5,3.62,unit
+cauliflower,6,3.27,unit
+cauliflower,7,3.65,unit
+cauliflower,8,3.42,unit
+cauliflower,9,3.83,unit
+cauliflower,10,2.19,unit
+cauliflower,11,2.35,unit
+cauliflower,12,2.18,unit
+cabbage,1,3.88,unit
+cabbage,2,3.23,unit
+cabbage,3,3.65,unit
+cabbage,4,3.82,unit
+cabbage,5,5.02,unit
+cabbage,6,4.99,unit
+cabbage,7,4.69,unit
+cabbage,8,4.53,unit
+cabbage,9,5.38,unit
+cabbage,10,3.91,unit
+cabbage,11,3.62,unit
+cabbage,12,3.31,unit
+zucchini,1,2.58,unit
+zucchini,2,2.67,unit
+zucchini,3,2.66,unit
+zucchini,4,2.6,unit
+zucchini,5,1.8,unit
+zucchini,6,1.51,unit
+zucchini,7,1.55,unit
+zucchini,8,1.93,unit
+zucchini,9,1.78,unit
+zucchini,10,2.2,unit
+zucchini,11,2.25,unit
+zucchini,12,2.54,unit
+cucumber,1,0.89,unit
+cucumber,2,0.97,unit
+cucumber,3,1.0,unit
+cucumber,4,0.99,unit
+cucumber,5,0.62,unit
+cucumber,6,0.72,unit
+cucumber,7,0.62,unit
+cucumber,8,0.64,unit
+cucumber,9,0.73,unit
+cucumber,10,0.99,unit
+cucumber,11,1.03,unit
+cucumber,12,0.99,unit
+bell pepper,1,3.12,unit
+bell pepper,2,3.31,unit
+bell pepper,3,3.24,unit
+bell pepper,4,3.22,unit
+bell pepper,5,3.75,unit
+bell pepper,6,2.32,unit
+bell pepper,7,2.68,unit
+bell pepper,8,2.49,unit
+bell pepper,9,2.61,unit
+bell pepper,10,2.4,unit
+bell pepper,11,3.47,unit
+bell pepper,12,3.41,unit
+jalapeno,1,1.87,unit
+jalapeno,2,1.71,unit
+jalapeno,3,1.61,unit
+jalapeno,4,1.84,unit
+jalapeno,5,1.67,unit
+jalapeno,6,1.42,unit
+jalapeno,7,1.43,unit
+jalapeno,8,1.41,unit
+jalapeno,9,1.21,unit
+jalapeno,10,1.07,unit
+jalapeno,11,1.95,unit
+jalapeno,12,1.76,unit
+asparagus,1,5.65,unit
+asparagus,2,5.53,unit
+asparagus,3,3.39,unit
+asparagus,4,3.48,unit
+asparagus,5,3.99,unit
+asparagus,6,3.41,unit
+asparagus,7,4.78,unit
+asparagus,8,5.2,unit
+asparagus,9,5.62,unit
+asparagus,10,5.36,unit
+asparagus,11,5.22,unit
+asparagus,12,4.7,unit
+artichoke,1,3.99,unit
+artichoke,2,3.34,unit
+artichoke,3,2.55,unit
+artichoke,4,2.83,unit
+artichoke,5,2.72,unit
+artichoke,6,3.77,unit
+artichoke,7,3.77,unit
+artichoke,8,3.51,unit
+artichoke,9,3.46,unit
+artichoke,10,3.85,unit
+artichoke,11,3.85,unit
+artichoke,12,3.9,unit
+carrot,1,3.46,unit
+carrot,2,3.45,unit
+carrot,3,3.76,unit
+carrot,4,3.6,unit
+carrot,5,3.66,unit
+carrot,6,3.76,unit
+carrot,7,3.86,unit
+carrot,8,3.28,unit
+carrot,9,3.32,unit
+carrot,10,3.02,unit
+carrot,11,3.53,unit
+carrot,12,2.96,unit
+onion,1,2.11,unit
+onion,2,1.95,unit
+onion,3,2.14,unit
+onion,4,1.79,unit
+onion,5,1.79,unit
+onion,6,2.28,unit
+onion,7,1.99,unit
+onion,8,1.85,unit
+onion,9,2.1,unit
+onion,10,2.25,unit
+onion,11,1.9,unit
+onion,12,2.16,unit
+garlic,1,0.8,unit
+garlic,2,0.93,unit
+garlic,3,0.93,unit
+garlic,4,0.96,unit
+garlic,5,0.98,unit
+garlic,6,1.05,unit
+garlic,7,0.93,unit
+garlic,8,0.87,unit
+garlic,9,1.0,unit
+garlic,10,0.86,unit
+garlic,11,0.9,unit
+garlic,12,0.8,unit
+potato,1,0.84,unit
+potato,2,0.81,unit
+potato,3,0.78,unit
+potato,4,0.72,unit
+potato,5,0.66,unit
+potato,6,0.66,unit
+potato,7,0.68,unit
+potato,8,0.75,unit
+potato,9,0.79,unit
+potato,10,0.77,unit
+potato,11,0.69,unit
+potato,12,0.84,unit
+sweet potato,1,2.96,unit
+sweet potato,2,4.25,unit
+sweet potato,3,4.08,unit
+sweet potato,4,3.93,unit
+sweet potato,5,4.02,unit
+sweet potato,6,4.38,unit
+sweet potato,7,3.72,unit
+sweet potato,8,2.57,unit
+sweet potato,9,2.51,unit
+sweet potato,10,2.51,unit
+sweet potato,11,3.23,unit
+sweet potato,12,3.09,unit
+orange,1,1.85,unit
+orange,2,2.1,unit
+orange,3,2.09,unit
+orange,4,1.9,unit
+orange,5,2.96,unit
+orange,6,2.94,unit
+orange,7,3.08,unit
+orange,8,3.09,unit
+orange,9,2.71,unit
+orange,10,2.92,unit
+orange,11,3.08,unit
+orange,12,3.0,unit
+lemon,1,3.43,unit
+lemon,2,2.94,unit
+lemon,3,2.85,unit
+lemon,4,3.42,unit
+lemon,5,2.8,unit
+lemon,6,3.36,unit
+lemon,7,5.1,unit
+lemon,8,4.74,unit
+lemon,9,4.55,unit
+lemon,10,4.81,unit
+lemon,11,3.23,unit
+lemon,12,3.32,unit
+lime,1,4.91,unit
+lime,2,5.53,unit
+lime,3,5.47,unit
+lime,4,4.71,unit
+lime,5,4.57,unit
+lime,6,3.11,unit
+lime,7,3.02,unit
+lime,8,3.1,unit
+lime,9,3.73,unit
+lime,10,3.07,unit
+lime,11,4.84,unit
+lime,12,5.4,unit
+grape,1,1.11,unit
+grape,2,0.99,unit
+grape,3,0.96,unit
+grape,4,1.08,unit
+grape,5,1.07,unit
+grape,6,1.12,unit
+grape,7,0.78,unit
+grape,8,0.8,unit
+grape,9,0.68,unit
+grape,10,0.66,unit
+grape,11,1.1,unit
+grape,12,1.11,unit
+apple,1,5.15,unit
+apple,2,5.1,unit
+apple,3,5.55,unit
+apple,4,5.07,unit
+apple,5,5.73,unit
+apple,6,5.65,unit
+apple,7,5.17,unit
+apple,8,3.96,unit
+apple,9,3.97,unit
+apple,10,3.24,unit
+apple,11,4.13,unit
+apple,12,5.25,unit
+pear,1,4.36,unit
+pear,2,4.91,unit
+pear,3,4.43,unit
+pear,4,4.06,unit
+pear,5,4.92,unit
+pear,6,4.14,unit
+pear,7,4.36,unit
+pear,8,3.62,unit
+pear,9,3.62,unit
+pear,10,3.25,unit
+pear,11,4.66,unit
+pear,12,4.48,unit
+peach,1,2.13,unit
+peach,2,2.3,unit
+peach,3,2.33,unit
+peach,4,2.35,unit
+peach,5,1.69,unit
+peach,6,1.36,unit
+peach,7,1.55,unit
+peach,8,1.35,unit
+peach,9,2.24,unit
+peach,10,2.19,unit
+peach,11,2.4,unit
+peach,12,2.14,unit
+plum,1,1.34,unit
+plum,2,1.53,unit
+plum,3,1.49,unit
+plum,4,1.33,unit
+plum,5,0.89,unit
+plum,6,1.08,unit
+plum,7,0.89,unit
+plum,8,1.12,unit
+plum,9,1.51,unit
+plum,10,1.32,unit
+plum,11,1.32,unit
+plum,12,1.6,unit
+nectarine,1,2.5,unit
+nectarine,2,2.74,unit
+nectarine,3,2.81,unit
+nectarine,4,2.83,unit
+nectarine,5,1.94,unit
+nectarine,6,1.73,unit
+nectarine,7,1.57,unit
+nectarine,8,1.95,unit
+nectarine,9,2.6,unit
+nectarine,10,2.53,unit
+nectarine,11,2.79,unit
+nectarine,12,2.35,unit
+watermelon,1,2.76,unit
+watermelon,2,3.06,unit
+watermelon,3,2.79,unit
+watermelon,4,2.83,unit
+watermelon,5,2.83,unit
+watermelon,6,2.26,unit
+watermelon,7,2.33,unit
+watermelon,8,2.22,unit
+watermelon,9,2.47,unit
+watermelon,10,3.0,unit
+watermelon,11,2.94,unit
+watermelon,12,3.32,unit
+cantaloupe,1,2.1,unit
+cantaloupe,2,1.71,unit
+cantaloupe,3,2.1,unit
+cantaloupe,4,1.73,unit
+cantaloupe,5,2.07,unit
+cantaloupe,6,1.35,unit
+cantaloupe,7,1.54,unit
+cantaloupe,8,1.17,unit
+cantaloupe,9,1.36,unit
+cantaloupe,10,2.1,unit
+cantaloupe,11,1.92,unit
+cantaloupe,12,1.96,unit
+mango,1,3.93,unit
+mango,2,4.07,unit
+mango,3,4.04,unit
+mango,4,4.3,unit
+mango,5,3.58,unit
+mango,6,2.6,unit
+mango,7,3.16,unit
+mango,8,3.11,unit
+mango,9,3.93,unit
+mango,10,4.07,unit
+mango,11,3.78,unit
+mango,12,3.7,unit
+pineapple,1,2.86,unit
+pineapple,2,3.01,unit
+pineapple,3,1.81,unit
+pineapple,4,2.37,unit
+pineapple,5,2.38,unit
+pineapple,6,2.2,unit
+pineapple,7,2.1,unit
+pineapple,8,1.96,unit
+pineapple,9,3.15,unit
+pineapple,10,3.07,unit
+pineapple,11,2.74,unit
+pineapple,12,3.21,unit
+fig,1,4.95,unit
+fig,2,4.73,unit
+fig,3,4.62,unit
+fig,4,4.44,unit
+fig,5,4.93,unit
+fig,6,4.87,unit
+fig,7,2.73,unit
+fig,8,2.72,unit
+fig,9,3.05,unit
+fig,10,4.81,unit
+fig,11,4.98,unit
+fig,12,4.18,unit
+pomegranate,1,3.43,unit
+pomegranate,2,3.88,unit
+pomegranate,3,3.78,unit
+pomegranate,4,3.78,unit
+pomegranate,5,3.5,unit
+pomegranate,6,3.46,unit
+pomegranate,7,3.35,unit
+pomegranate,8,3.19,unit
+pomegranate,9,2.75,unit
+pomegranate,10,2.71,unit
+pomegranate,11,2.85,unit
+pomegranate,12,3.9,unit

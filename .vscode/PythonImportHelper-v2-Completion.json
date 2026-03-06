@@ -1,0 +1,304 @@
+[
+    {
+        "label": "pandas",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "pandas",
+        "description": "pandas",
+        "detail": "pandas",
+        "documentation": {}
+    },
+    {
+        "label": "numpy",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "numpy",
+        "description": "numpy",
+        "detail": "numpy",
+        "documentation": {}
+    },
+    {
+        "label": "re",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "re",
+        "description": "re",
+        "detail": "re",
+        "documentation": {}
+    },
+    {
+        "label": "train_test_split",
+        "importPath": "sklearn.model_selection",
+        "description": "sklearn.model_selection",
+        "isExtraImport": true,
+        "detail": "sklearn.model_selection",
+        "documentation": {}
+    },
+    {
+        "label": "ndcg_score",
+        "importPath": "sklearn.metrics",
+        "description": "sklearn.metrics",
+        "isExtraImport": true,
+        "detail": "sklearn.metrics",
+        "documentation": {}
+    },
+    {
+        "label": "StandardScaler",
+        "importPath": "sklearn.preprocessing",
+        "description": "sklearn.preprocessing",
+        "isExtraImport": true,
+        "detail": "sklearn.preprocessing",
+        "documentation": {}
+    },
+    {
+        "label": "LGBMRanker",
+        "importPath": "lightgbm",
+        "description": "lightgbm",
+        "isExtraImport": true,
+        "detail": "lightgbm",
+        "documentation": {}
+    },
+    {
+        "label": "matplotlib.pyplot",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "matplotlib.pyplot",
+        "description": "matplotlib.pyplot",
+        "detail": "matplotlib.pyplot",
+        "documentation": {}
+    },
+    {
+        "label": "seaborn",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "seaborn",
+        "description": "seaborn",
+        "detail": "seaborn",
+        "documentation": {}
+    },
+    {
+        "label": "parse_ingredients",
+        "kind": 2,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "def parse_ingredients(text):\n    if pd.isna(text):\n        return []\n    s = str(text).lower().strip()\n    # Remove common list wrappers and quotes\n    s = re.sub(r\"[\\[\\]\\(\\)\\\"']\", \"\", s)\n    # Split on commas or semicolons\n    parts = re.split(r\",|;\", s)\n    cleaned = []\n    for p in parts:",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "recipes",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "recipes = pd.read_csv(\"recipes.csv\")\nproduce_prices = pd.read_csv(\"produce_prices.csv\")\nproduce_seasonality = pd.read_csv(\"produce_seasonality.csv\")\nprint(\"recipes:\", recipes.shape)\nprint(\"produce_prices:\", produce_prices.shape)\nprint(\"produce_seasonality:\", produce_seasonality.shape)\n# ----------------------------\n# 2) Clean + split ingredients\n#    Assumes ingredients are comma-separated or list-like text\n# ----------------------------",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "produce_prices",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "produce_prices = pd.read_csv(\"produce_prices.csv\")\nproduce_seasonality = pd.read_csv(\"produce_seasonality.csv\")\nprint(\"recipes:\", recipes.shape)\nprint(\"produce_prices:\", produce_prices.shape)\nprint(\"produce_seasonality:\", produce_seasonality.shape)\n# ----------------------------\n# 2) Clean + split ingredients\n#    Assumes ingredients are comma-separated or list-like text\n# ----------------------------\ndef parse_ingredients(text):",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "produce_seasonality",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "produce_seasonality = pd.read_csv(\"produce_seasonality.csv\")\nprint(\"recipes:\", recipes.shape)\nprint(\"produce_prices:\", produce_prices.shape)\nprint(\"produce_seasonality:\", produce_seasonality.shape)\n# ----------------------------\n# 2) Clean + split ingredients\n#    Assumes ingredients are comma-separated or list-like text\n# ----------------------------\ndef parse_ingredients(text):\n    if pd.isna(text):",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "recipes[\"ingredient_list\"]",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "recipes[\"ingredient_list\"] = recipes[\"ingredients\"].apply(parse_ingredients)\n# ----------------------------\n# 3) Explode to one row per ingredient\n# ----------------------------\n# If your file has a recipe id column, use it. If not, create one.\nif \"recipe_id\" not in recipes.columns:\n    recipes = recipes.reset_index().rename(columns={\"index\": \"recipe_id\"})\nrecipe_ingredients = recipes[[\"recipe_id\", \"ingredient_list\"]].explode(\"ingredient_list\")\nrecipe_ingredients = recipe_ingredients.rename(columns={\"ingredient_list\": \"produce\"})\n# Final cleanup",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "recipe_ingredients",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "recipe_ingredients = recipes[[\"recipe_id\", \"ingredient_list\"]].explode(\"ingredient_list\")\nrecipe_ingredients = recipe_ingredients.rename(columns={\"ingredient_list\": \"produce\"})\n# Final cleanup\nrecipe_ingredients[\"produce\"] = recipe_ingredients[\"produce\"].astype(str).str.strip()\nrecipe_ingredients = recipe_ingredients[recipe_ingredients[\"produce\"] != \"\"]\nprint(\"recipe_ingredients (exploded):\", recipe_ingredients.shape)\nrecipe_ingredients.head(10)\n# ----------------------------\n# 4) Pick a query month (1–12)\n#    (Later we’ll train across all months; for now pick one)",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "recipe_ingredients",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "recipe_ingredients = recipe_ingredients.rename(columns={\"ingredient_list\": \"produce\"})\n# Final cleanup\nrecipe_ingredients[\"produce\"] = recipe_ingredients[\"produce\"].astype(str).str.strip()\nrecipe_ingredients = recipe_ingredients[recipe_ingredients[\"produce\"] != \"\"]\nprint(\"recipe_ingredients (exploded):\", recipe_ingredients.shape)\nrecipe_ingredients.head(10)\n# ----------------------------\n# 4) Pick a query month (1–12)\n#    (Later we’ll train across all months; for now pick one)\n# ----------------------------",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "recipe_ingredients[\"produce\"]",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "recipe_ingredients[\"produce\"] = recipe_ingredients[\"produce\"].astype(str).str.strip()\nrecipe_ingredients = recipe_ingredients[recipe_ingredients[\"produce\"] != \"\"]\nprint(\"recipe_ingredients (exploded):\", recipe_ingredients.shape)\nrecipe_ingredients.head(10)\n# ----------------------------\n# 4) Pick a query month (1–12)\n#    (Later we’ll train across all months; for now pick one)\n# ----------------------------\nQUERY_MONTH = 3  # March example\n# Add month to each (recipe, produce) row",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "recipe_ingredients",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "recipe_ingredients = recipe_ingredients[recipe_ingredients[\"produce\"] != \"\"]\nprint(\"recipe_ingredients (exploded):\", recipe_ingredients.shape)\nrecipe_ingredients.head(10)\n# ----------------------------\n# 4) Pick a query month (1–12)\n#    (Later we’ll train across all months; for now pick one)\n# ----------------------------\nQUERY_MONTH = 3  # March example\n# Add month to each (recipe, produce) row\nrecipe_ingredients[\"month\"] = QUERY_MONTH",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "QUERY_MONTH",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "QUERY_MONTH = 3  # March example\n# Add month to each (recipe, produce) row\nrecipe_ingredients[\"month\"] = QUERY_MONTH\n# ----------------------------\n# 5) Clean keys + dedupe external tables\n# ----------------------------\nproduce_prices[\"produce\"] = produce_prices[\"produce\"].astype(str).str.lower().str.strip()\nproduce_seasonality[\"produce\"] = produce_seasonality[\"produce\"].astype(str).str.lower().str.strip()\n# Ensure month is int\nproduce_prices[\"month\"] = produce_prices[\"month\"].astype(int)",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "recipe_ingredients[\"month\"]",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "recipe_ingredients[\"month\"] = QUERY_MONTH\n# ----------------------------\n# 5) Clean keys + dedupe external tables\n# ----------------------------\nproduce_prices[\"produce\"] = produce_prices[\"produce\"].astype(str).str.lower().str.strip()\nproduce_seasonality[\"produce\"] = produce_seasonality[\"produce\"].astype(str).str.lower().str.strip()\n# Ensure month is int\nproduce_prices[\"month\"] = produce_prices[\"month\"].astype(int)\nproduce_seasonality[\"month\"] = produce_seasonality[\"month\"].astype(int)\n# Dedupe in case there are duplicates",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "produce_prices[\"produce\"]",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "produce_prices[\"produce\"] = produce_prices[\"produce\"].astype(str).str.lower().str.strip()\nproduce_seasonality[\"produce\"] = produce_seasonality[\"produce\"].astype(str).str.lower().str.strip()\n# Ensure month is int\nproduce_prices[\"month\"] = produce_prices[\"month\"].astype(int)\nproduce_seasonality[\"month\"] = produce_seasonality[\"month\"].astype(int)\n# Dedupe in case there are duplicates\nproduce_prices = produce_prices.drop_duplicates(subset=[\"produce\", \"month\"])\nproduce_seasonality = produce_seasonality.drop_duplicates(subset=[\"produce\", \"month\"])\n# ----------------------------\n# 6) Merge: (recipe, produce, month) -> in_season + price",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "produce_seasonality[\"produce\"]",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "produce_seasonality[\"produce\"] = produce_seasonality[\"produce\"].astype(str).str.lower().str.strip()\n# Ensure month is int\nproduce_prices[\"month\"] = produce_prices[\"month\"].astype(int)\nproduce_seasonality[\"month\"] = produce_seasonality[\"month\"].astype(int)\n# Dedupe in case there are duplicates\nproduce_prices = produce_prices.drop_duplicates(subset=[\"produce\", \"month\"])\nproduce_seasonality = produce_seasonality.drop_duplicates(subset=[\"produce\", \"month\"])\n# ----------------------------\n# 6) Merge: (recipe, produce, month) -> in_season + price\n# ----------------------------",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "produce_prices[\"month\"]",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "produce_prices[\"month\"] = produce_prices[\"month\"].astype(int)\nproduce_seasonality[\"month\"] = produce_seasonality[\"month\"].astype(int)\n# Dedupe in case there are duplicates\nproduce_prices = produce_prices.drop_duplicates(subset=[\"produce\", \"month\"])\nproduce_seasonality = produce_seasonality.drop_duplicates(subset=[\"produce\", \"month\"])\n# ----------------------------\n# 6) Merge: (recipe, produce, month) -> in_season + price\n# ----------------------------\ndf = recipe_ingredients.merge(\n    produce_seasonality.assign(in_season=1),   # seasonality file is just presence = in season",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "produce_seasonality[\"month\"]",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "produce_seasonality[\"month\"] = produce_seasonality[\"month\"].astype(int)\n# Dedupe in case there are duplicates\nproduce_prices = produce_prices.drop_duplicates(subset=[\"produce\", \"month\"])\nproduce_seasonality = produce_seasonality.drop_duplicates(subset=[\"produce\", \"month\"])\n# ----------------------------\n# 6) Merge: (recipe, produce, month) -> in_season + price\n# ----------------------------\ndf = recipe_ingredients.merge(\n    produce_seasonality.assign(in_season=1),   # seasonality file is just presence = in season\n    on=[\"produce\", \"month\"],",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "produce_prices",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "produce_prices = produce_prices.drop_duplicates(subset=[\"produce\", \"month\"])\nproduce_seasonality = produce_seasonality.drop_duplicates(subset=[\"produce\", \"month\"])\n# ----------------------------\n# 6) Merge: (recipe, produce, month) -> in_season + price\n# ----------------------------\ndf = recipe_ingredients.merge(\n    produce_seasonality.assign(in_season=1),   # seasonality file is just presence = in season\n    on=[\"produce\", \"month\"],\n    how=\"left\"\n)",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "produce_seasonality",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "produce_seasonality = produce_seasonality.drop_duplicates(subset=[\"produce\", \"month\"])\n# ----------------------------\n# 6) Merge: (recipe, produce, month) -> in_season + price\n# ----------------------------\ndf = recipe_ingredients.merge(\n    produce_seasonality.assign(in_season=1),   # seasonality file is just presence = in season\n    on=[\"produce\", \"month\"],\n    how=\"left\"\n)\ndf[\"in_season\"] = df[\"in_season\"].fillna(0).astype(int)",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "df",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "df = recipe_ingredients.merge(\n    produce_seasonality.assign(in_season=1),   # seasonality file is just presence = in season\n    on=[\"produce\", \"month\"],\n    how=\"left\"\n)\ndf[\"in_season\"] = df[\"in_season\"].fillna(0).astype(int)\ndf = df.merge(\n    produce_prices[[\"produce\", \"month\", \"price_per_unit\", \"unit\"]],\n    on=[\"produce\", \"month\"],\n    how=\"left\"",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "df[\"in_season\"]",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "df[\"in_season\"] = df[\"in_season\"].fillna(0).astype(int)\ndf = df.merge(\n    produce_prices[[\"produce\", \"month\", \"price_per_unit\", \"unit\"]],\n    on=[\"produce\", \"month\"],\n    how=\"left\"\n)\n# If a price is missing, we’ll mark it and optionally fill later\ndf[\"missing_price\"] = df[\"price_per_unit\"].isna().astype(int)\n# Simple fill for missing prices (keeps pipeline moving):\n# fill missing with the median price across all produce that month",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "df",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "df = df.merge(\n    produce_prices[[\"produce\", \"month\", \"price_per_unit\", \"unit\"]],\n    on=[\"produce\", \"month\"],\n    how=\"left\"\n)\n# If a price is missing, we’ll mark it and optionally fill later\ndf[\"missing_price\"] = df[\"price_per_unit\"].isna().astype(int)\n# Simple fill for missing prices (keeps pipeline moving):\n# fill missing with the median price across all produce that month\nmedian_price = df[\"price_per_unit\"].median()",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "df[\"missing_price\"]",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "df[\"missing_price\"] = df[\"price_per_unit\"].isna().astype(int)\n# Simple fill for missing prices (keeps pipeline moving):\n# fill missing with the median price across all produce that month\nmedian_price = df[\"price_per_unit\"].median()\ndf[\"price_per_unit\"] = df[\"price_per_unit\"].fillna(median_price)\nprint(\"Merged ingredient-level rows:\", df.shape)\ndf.head(10)\n# ----------------------------\n# 7) Compute recipe-level features for ranking\n# ----------------------------",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "median_price",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "median_price = df[\"price_per_unit\"].median()\ndf[\"price_per_unit\"] = df[\"price_per_unit\"].fillna(median_price)\nprint(\"Merged ingredient-level rows:\", df.shape)\ndf.head(10)\n# ----------------------------\n# 7) Compute recipe-level features for ranking\n# ----------------------------\nrecipe_features = df.groupby(\"recipe_id\").agg(\n    total_cost=(\"price_per_unit\", \"sum\"),\n    seasonality_rate=(\"in_season\", \"mean\"),      # fraction of ingredients in season",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "df[\"price_per_unit\"]",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "df[\"price_per_unit\"] = df[\"price_per_unit\"].fillna(median_price)\nprint(\"Merged ingredient-level rows:\", df.shape)\ndf.head(10)\n# ----------------------------\n# 7) Compute recipe-level features for ranking\n# ----------------------------\nrecipe_features = df.groupby(\"recipe_id\").agg(\n    total_cost=(\"price_per_unit\", \"sum\"),\n    seasonality_rate=(\"in_season\", \"mean\"),      # fraction of ingredients in season\n    missing_price_count=(\"missing_price\", \"sum\"),",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "recipe_features",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "recipe_features = df.groupby(\"recipe_id\").agg(\n    total_cost=(\"price_per_unit\", \"sum\"),\n    seasonality_rate=(\"in_season\", \"mean\"),      # fraction of ingredients in season\n    missing_price_count=(\"missing_price\", \"sum\"),\n    ingredient_count=(\"produce\", \"count\")\n).reset_index()\n# Optional: a combined score baseline (non-ML) for comparison\n# Higher seasonality_rate is better; lower cost is better\nrecipe_features[\"baseline_score\"] = (\n    recipe_features[\"seasonality_rate\"] * 1.0",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "recipe_features[\"baseline_score\"]",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "recipe_features[\"baseline_score\"] = (\n    recipe_features[\"seasonality_rate\"] * 1.0\n    - 0.05 * recipe_features[\"total_cost\"]\n    - 0.10 * recipe_features[\"missing_price_count\"]\n)\nrecipe_features.sort_values(\"baseline_score\", ascending=False).head(10)",
+        "detail": "demo",
+        "documentation": {}
+    }
+]
