@@ -755,7 +755,7 @@
         "kind": 5,
         "importPath": "demo",
         "description": "demo",
-        "peekOfCode": "importances = ranker.feature_importances_\nfeature_importance_df = pd.DataFrame({\n    \"feature\": feature_cols,\n    \"importance\": importances\n}).sort_values(\"importance\", ascending=False)\nprint(feature_importance_df)\n# feature_importance_df.plot.bar(x=\"feature\", y=\"importance\")\n# plt.title(\"Feature Importance\")\n# plt.show()\n####",
+        "peekOfCode": "importances = ranker.feature_importances_\nfeature_importance_df = pd.DataFrame({\n    \"feature\": feature_cols,\n    \"importance\": importances\n}).sort_values(\"importance\", ascending=False)\nprint(feature_importance_df)\n# feature_importance_df.plot.bar(x=\"feature\", y=\"importance\")\n# plt.title(\"Feature Importance\")\n# plt.show()\n####  inspected top-ranked recipes",
         "detail": "demo",
         "documentation": {}
     },
@@ -764,7 +764,7 @@
         "kind": 5,
         "importPath": "demo",
         "description": "demo",
-        "peekOfCode": "feature_importance_df = pd.DataFrame({\n    \"feature\": feature_cols,\n    \"importance\": importances\n}).sort_values(\"importance\", ascending=False)\nprint(feature_importance_df)\n# feature_importance_df.plot.bar(x=\"feature\", y=\"importance\")\n# plt.title(\"Feature Importance\")\n# plt.show()\n####\nmonth_to_view = 12",
+        "peekOfCode": "feature_importance_df = pd.DataFrame({\n    \"feature\": feature_cols,\n    \"importance\": importances\n}).sort_values(\"importance\", ascending=False)\nprint(feature_importance_df)\n# feature_importance_df.plot.bar(x=\"feature\", y=\"importance\")\n# plt.title(\"Feature Importance\")\n# plt.show()\n####  inspected top-ranked recipes\nmonth_to_view = 12",
         "detail": "demo",
         "documentation": {}
     },
