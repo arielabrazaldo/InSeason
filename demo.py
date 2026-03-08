@@ -286,16 +286,16 @@ print(features[feature_cols].describe().T[["mean", "std", "min", "max"]])
 ###################################
 # What % of ingredient rows matched seasonality?
 
-print("Matched seasonality %:",
-      df_all["in_season"].mean())
+# print("Matched seasonality %:",
+#       df_all["in_season"].mean())
 
-# How many unique ingredients in recipes?
-print("Unique ingredients in recipes:",
-      recipe_ingredients["produce"].nunique())
+# # How many unique ingredients in recipes?
+# print("Unique ingredients in recipes:",
+#       recipe_ingredients["produce"].nunique())
 
-# How many unique produce in seasonality file?
-print("Unique produce in seasonality:",
-      produce_seasonality["produce"].nunique())
+# # How many unique produce in seasonality file?
+# print("Unique produce in seasonality:",
+#       produce_seasonality["produce"].nunique())
 
 
 ###################################
@@ -305,16 +305,202 @@ ingredient_counts = recipe_ingredients["produce"].value_counts()
 ingredient_counts.head(50)
 
 produce_keywords = [
-    "onion", "garlic", "tomato", "pepper", "spinach",
-    "lettuce", "carrot", "zucchini", "cucumber",
-    "apple", "lemon", "lime", "orange", "berry",
-    "basil", "cilantro", "parsley", "celery",
-    "cabbage", "broccoli", "cauliflower",
-    "mushroom", "ginger", "potato"
+    # Alliums
+    "onion", "garlic", "shallot", "scallion", "leek",
+    # Nightshades
+    "tomato", "pepper", "chili", "jalapeno", "bell pepper",
+    # Leafy greens
+    "spinach", "lettuce", "arugula", "kale", "chard", "collard",
+    # Root vegetables
+    "carrot", "beet", "radish", "turnip", "parsnip",
+    "potato", "sweet potato", "yam",
+    # Squash
+    "zucchini", "squash", "pumpkin",
+    # Cruciferous
+    "broccoli", "cauliflower", "cabbage", "brussels sprout",
+    # Herbs
+    "basil", "cilantro", "parsley", "thyme", "rosemary",
+    "oregano", "dill", "mint",
+    # Fruits
+    "apple", "pear", "peach", "plum", "nectarine",
+    "orange", "lemon", "lime", "grape",
+    "berry", "strawberry", "blueberry", "raspberry",
+    "blackberry", "mango", "pineapple",
+    "watermelon", "cantaloupe", "melon",
+    # Other common produce
+    "cucumber", "celery", "mushroom", "ginger",
+    "avocado", "corn", "eggplant"
 ]
 
 df_all["is_produce"] = df_all["produce"].apply(
     lambda x: any(k in x for k in produce_keywords)
 ).astype(int)
 
-ingredient_counts.head(50)
+# -------------------------------------------------
+# Step 2: Recompute features correctly
+# -------------------------------------------------
+
+features = df_all.groupby(["recipe_id", "month"]).agg(
+    total_cost=("price_per_unit", "sum"),
+    produce_count=("is_produce", "sum"),
+    in_season_produce=("in_season", "sum"),
+    missing_price_count=("missing_price", "sum"),
+    ingredient_count=("produce", "count"),
+).reset_index()
+
+features["seasonality_rate"] = np.where(
+    features["produce_count"] > 0,
+    features["in_season_produce"] / features["produce_count"],
+    0
+)
+
+features["cost_per_ingredient"] = features["total_cost"] / features["ingredient_count"]
+
+# print(features["seasonality_rate"].describe())
+
+# Check how many recipes have at least 1 produce ingredient
+
+# print("Percent of recipes with at least 1 produce ingredient:",
+#       (features["produce_count"] > 0).mean())
+
+# print("Average produce_count per recipe:",
+#       features["produce_count"].mean())
+
+
+# Normalize cost within month
+features["cost_z"] = features.groupby("month")["total_cost"].transform(
+    lambda s: (s - s.mean()) / (s.std() + 1e-9)
+)
+
+# Higher is better: more in-season, lower cost
+features["target_score"] = features["seasonality_rate"] - 0.4 * features["cost_z"]
+
+# Balanced 3-class labels per month
+def make_tertiles(group):
+    q1 = group["target_score"].quantile(0.33)
+    q2 = group["target_score"].quantile(0.66)
+    return pd.cut(
+        group["target_score"],
+        bins=[-np.inf, q1, q2, np.inf],
+        labels=[0, 1, 2]
+    ).astype(int)
+
+features["label"] = features.groupby("month", group_keys=False).apply(make_tertiles)
+
+print("Label distribution:")
+print(features["label"].value_counts(normalize=True))
+
+
+# Training LightGBM training with the new features and labels
+
+# Train/test split by month
+train_months = [1,2,3,4,5,6,7,8,9]
+test_months  = [10,11,12]
+
+train_df = features[features["month"].isin(train_months)].copy()
+test_df  = features[features["month"].isin(test_months)].copy()
+
+feature_cols = [
+    "total_cost",
+    "seasonality_rate",
+    "missing_price_count",
+    "ingredient_count",
+    "cost_per_ingredient"
+]
+
+X_train = train_df[feature_cols]
+y_train = train_df["label"]
+
+X_test = test_df[feature_cols]
+y_test = test_df["label"]
+
+group_train = train_df.groupby("month").size().tolist()
+
+ranker = LGBMRanker(
+    objective="lambdarank",
+    n_estimators=300,
+    learning_rate=0.05,
+    num_leaves=63,
+    min_data_in_leaf=5,
+    random_state=42
+)
+
+ranker.fit(
+    X_train,
+    y_train,
+    group=group_train
+)
+
+print("Model trained successfully.")
+
+
+# Measuring quality 
+
+# Predict on test
+test_df["pred"] = ranker.predict(X_test)
+
+def ndcg_at_k(df_month, k=10):
+    y_true = df_month["label"].values.reshape(1, -1)
+    y_score = df_month["pred"].values.reshape(1, -1)
+    return ndcg_score(y_true, y_score, k=k)
+
+results = []
+
+for m, g in test_df.groupby("month"):
+    score = ndcg_at_k(g, k=10)
+    results.append((m, score))
+
+ndcg_results = pd.DataFrame(results, columns=["month", "ndcg@10"])
+print(ndcg_results)
+print("\nAverage NDCG@10:", ndcg_results["ndcg@10"].mean())
+
+# baseliine ranking ################
+
+# Baseline score (no ML)
+test_df["baseline_score"] = (
+    test_df["seasonality_rate"] - 0.4 * test_df["cost_z"]
+)
+
+def ndcg_baseline(df_month, k=10):
+    y_true = df_month["label"].values.reshape(1, -1)
+    y_score = df_month["baseline_score"].values.reshape(1, -1)
+    return ndcg_score(y_true, y_score, k=k)
+
+baseline_results = []
+
+for m, g in test_df.groupby("month"):
+    score = ndcg_baseline(g, k=10)
+    baseline_results.append((m, score))
+
+baseline_df = pd.DataFrame(baseline_results, columns=["month", "baseline_ndcg@10"])
+print(baseline_df)
+print("\nBaseline Average NDCG@10:", baseline_df["baseline_ndcg@10"].mean())
+
+# inspect feature importance
+
+import matplotlib.pyplot as plt
+
+importances = ranker.feature_importances_
+feature_importance_df = pd.DataFrame({
+    "feature": feature_cols,
+    "importance": importances
+}).sort_values("importance", ascending=False)
+
+print(feature_importance_df)
+
+# feature_importance_df.plot.bar(x="feature", y="importance")
+# plt.title("Feature Importance")
+# plt.show()
+
+####  inspected top-ranked recipes
+
+month_to_view = 12
+
+month_df = test_df[test_df["month"] == month_to_view].copy()
+month_df = month_df.sort_values("pred", ascending=False)
+
+top10 = month_df.head(10)[
+    ["recipe_id", "total_cost", "seasonality_rate", "produce_count"]
+]
+
+print(top10)
