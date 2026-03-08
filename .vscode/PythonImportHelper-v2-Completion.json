@@ -59,6 +59,14 @@
         "documentation": {}
     },
     {
+        "label": "LGBMRanker",
+        "importPath": "lightgbm",
+        "description": "lightgbm",
+        "isExtraImport": true,
+        "detail": "lightgbm",
+        "documentation": {}
+    },
+    {
         "label": "matplotlib.pyplot",
         "kind": 6,
         "isExtraImport": true,
@@ -82,6 +90,15 @@
         "importPath": "demo",
         "description": "demo",
         "peekOfCode": "def parse_ingredients(text):\n    if pd.isna(text):\n        return []\n    s = str(text).lower().strip()\n    # Remove common list wrappers and quotes\n    s = re.sub(r\"[\\[\\]\\(\\)\\\"']\", \"\", s)\n    # Split on commas or semicolons\n    parts = re.split(r\",|;\", s)\n    cleaned = []\n    for p in parts:",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "label_month",
+        "kind": 2,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "def label_month(group):\n    cost_q30 = group[\"total_cost\"].quantile(0.30)\n    cost_q70 = group[\"total_cost\"].quantile(0.70)\n    seas_q30 = group[\"seasonality_rate\"].quantile(0.30)\n    seas_q70 = group[\"seasonality_rate\"].quantile(0.70)\n    labels = np.ones(len(group), dtype=int)\n    best = (group[\"total_cost\"] <= cost_q30) & (group[\"seasonality_rate\"] >= seas_q70)\n    worst = (group[\"total_cost\"] >= cost_q70) & (group[\"seasonality_rate\"] <= seas_q30)\n    labels[best.values] = 2\n    labels[worst.values] = 0",
         "detail": "demo",
         "documentation": {}
     },
@@ -297,7 +314,223 @@
         "kind": 5,
         "importPath": "demo",
         "description": "demo",
-        "peekOfCode": "recipe_features[\"baseline_score\"] = (\n    recipe_features[\"seasonality_rate\"] * 1.0\n    - 0.05 * recipe_features[\"total_cost\"]\n    - 0.10 * recipe_features[\"missing_price_count\"]\n)\nrecipe_features.sort_values(\"baseline_score\", ascending=False).head(10)",
+        "peekOfCode": "recipe_features[\"baseline_score\"] = (\n    recipe_features[\"seasonality_rate\"] * 1.0\n    - 0.05 * recipe_features[\"total_cost\"]\n    - 0.10 * recipe_features[\"missing_price_count\"]\n)\nrecipe_features.sort_values(\"baseline_score\", ascending=False).head(10)\n# ----------------------------\n# 8) Expand recipe ingredients across ALL months (1–12)\n# ----------------------------\nmonths = pd.DataFrame({\"month\": list(range(1, 13))})",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "months",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "months = pd.DataFrame({\"month\": list(range(1, 13))})\n# Cross join: every (recipe, produce) gets duplicated for every month\nrecipe_ingredients_all = recipe_ingredients.drop(columns=[\"month\"], errors=\"ignore\").merge(months, how=\"cross\")\n# Merge with seasonality + prices\ndf_all = recipe_ingredients_all.merge(\n    produce_seasonality.assign(in_season=1),\n    on=[\"produce\", \"month\"],\n    how=\"left\"\n)\ndf_all[\"in_season\"] = df_all[\"in_season\"].fillna(0).astype(int)",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "recipe_ingredients_all",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "recipe_ingredients_all = recipe_ingredients.drop(columns=[\"month\"], errors=\"ignore\").merge(months, how=\"cross\")\n# Merge with seasonality + prices\ndf_all = recipe_ingredients_all.merge(\n    produce_seasonality.assign(in_season=1),\n    on=[\"produce\", \"month\"],\n    how=\"left\"\n)\ndf_all[\"in_season\"] = df_all[\"in_season\"].fillna(0).astype(int)\ndf_all = df_all.merge(\n    produce_prices[[\"produce\", \"month\", \"price_per_unit\"]],",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "df_all",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "df_all = recipe_ingredients_all.merge(\n    produce_seasonality.assign(in_season=1),\n    on=[\"produce\", \"month\"],\n    how=\"left\"\n)\ndf_all[\"in_season\"] = df_all[\"in_season\"].fillna(0).astype(int)\ndf_all = df_all.merge(\n    produce_prices[[\"produce\", \"month\", \"price_per_unit\"]],\n    on=[\"produce\", \"month\"],\n    how=\"left\"",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "df_all[\"in_season\"]",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "df_all[\"in_season\"] = df_all[\"in_season\"].fillna(0).astype(int)\ndf_all = df_all.merge(\n    produce_prices[[\"produce\", \"month\", \"price_per_unit\"]],\n    on=[\"produce\", \"month\"],\n    how=\"left\"\n)\ndf_all[\"missing_price\"] = df_all[\"price_per_unit\"].isna().astype(int)\n# Fill missing prices using month-specific medians (more stable than global)\ndf_all[\"price_per_unit\"] = df_all.groupby(\"month\")[\"price_per_unit\"].transform(\n    lambda s: s.fillna(s.median())",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "df_all",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "df_all = df_all.merge(\n    produce_prices[[\"produce\", \"month\", \"price_per_unit\"]],\n    on=[\"produce\", \"month\"],\n    how=\"left\"\n)\ndf_all[\"missing_price\"] = df_all[\"price_per_unit\"].isna().astype(int)\n# Fill missing prices using month-specific medians (more stable than global)\ndf_all[\"price_per_unit\"] = df_all.groupby(\"month\")[\"price_per_unit\"].transform(\n    lambda s: s.fillna(s.median())\n)",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "df_all[\"missing_price\"]",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "df_all[\"missing_price\"] = df_all[\"price_per_unit\"].isna().astype(int)\n# Fill missing prices using month-specific medians (more stable than global)\ndf_all[\"price_per_unit\"] = df_all.groupby(\"month\")[\"price_per_unit\"].transform(\n    lambda s: s.fillna(s.median())\n)\nprint(\"Ingredient-level rows across all months:\", df_all.shape)\ndf_all.head(10)\n# ----------------------------\n# 9) Recipe-level features per (recipe_id, month)\n# ----------------------------",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "df_all[\"price_per_unit\"]",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "df_all[\"price_per_unit\"] = df_all.groupby(\"month\")[\"price_per_unit\"].transform(\n    lambda s: s.fillna(s.median())\n)\nprint(\"Ingredient-level rows across all months:\", df_all.shape)\ndf_all.head(10)\n# ----------------------------\n# 9) Recipe-level features per (recipe_id, month)\n# ----------------------------\nfeatures = df_all.groupby([\"recipe_id\", \"month\"]).agg(\n    total_cost=(\"price_per_unit\", \"sum\"),",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "features",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "features = df_all.groupby([\"recipe_id\", \"month\"]).agg(\n    total_cost=(\"price_per_unit\", \"sum\"),\n    seasonality_rate=(\"in_season\", \"mean\"),\n    missing_price_count=(\"missing_price\", \"sum\"),\n    ingredient_count=(\"produce\", \"count\"),\n).reset_index()\n# A helpful engineered feature:\nfeatures[\"cost_per_ingredient\"] = features[\"total_cost\"] / features[\"ingredient_count\"]\nfeatures.head(10)\n# ----------------------------",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "features[\"cost_per_ingredient\"]",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "features[\"cost_per_ingredient\"] = features[\"total_cost\"] / features[\"ingredient_count\"]\nfeatures.head(10)\n# ----------------------------\n# 10) Create ranking labels (0,1,2) per month\n# ----------------------------\ndef label_month(group):\n    cost_q30 = group[\"total_cost\"].quantile(0.30)\n    cost_q70 = group[\"total_cost\"].quantile(0.70)\n    seas_q30 = group[\"seasonality_rate\"].quantile(0.30)\n    seas_q70 = group[\"seasonality_rate\"].quantile(0.70)",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "features[\"label\"]",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "features[\"label\"] = features.groupby(\"month\", group_keys=False).apply(label_month)\n# Make sure label is numeric (int)\nfeatures[\"label\"] = pd.to_numeric(features[\"label\"], errors=\"coerce\").fillna(1).astype(int)\nfeatures[[\"recipe_id\", \"month\", \"total_cost\", \"seasonality_rate\", \"label\"]].head(10)\nfrom lightgbm import LGBMRanker\n# ----------------------------\n# 11) Train/test split by month\n# ----------------------------\ntrain_months = [1,2,3,4,5,6,7,8,9]    # train on 9 months\ntest_months  = [10,11,12]            # test on last 3 months",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "features[\"label\"]",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "features[\"label\"] = pd.to_numeric(features[\"label\"], errors=\"coerce\").fillna(1).astype(int)\nfeatures[[\"recipe_id\", \"month\", \"total_cost\", \"seasonality_rate\", \"label\"]].head(10)\nfrom lightgbm import LGBMRanker\n# ----------------------------\n# 11) Train/test split by month\n# ----------------------------\ntrain_months = [1,2,3,4,5,6,7,8,9]    # train on 9 months\ntest_months  = [10,11,12]            # test on last 3 months\ntrain_df = features[features[\"month\"].isin(train_months)].copy()\ntest_df  = features[features[\"month\"].isin(test_months)].copy()",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "train_months",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "train_months = [1,2,3,4,5,6,7,8,9]    # train on 9 months\ntest_months  = [10,11,12]            # test on last 3 months\ntrain_df = features[features[\"month\"].isin(train_months)].copy()\ntest_df  = features[features[\"month\"].isin(test_months)].copy()\nfeature_cols = [\"total_cost\", \"seasonality_rate\", \"missing_price_count\", \"ingredient_count\", \"cost_per_ingredient\"]\nX_train = train_df[feature_cols]\ny_train = train_df[\"label\"]\nX_test = test_df[feature_cols]\ny_test = test_df[\"label\"]\n# Group sizes: number of recipes per month",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "train_df",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "train_df = features[features[\"month\"].isin(train_months)].copy()\ntest_df  = features[features[\"month\"].isin(test_months)].copy()\nfeature_cols = [\"total_cost\", \"seasonality_rate\", \"missing_price_count\", \"ingredient_count\", \"cost_per_ingredient\"]\nX_train = train_df[feature_cols]\ny_train = train_df[\"label\"]\nX_test = test_df[feature_cols]\ny_test = test_df[\"label\"]\n# Group sizes: number of recipes per month\ngroup_train = train_df.groupby(\"month\").size().tolist()\ngroup_test = test_df.groupby(\"month\").size().tolist()",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "feature_cols",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "feature_cols = [\"total_cost\", \"seasonality_rate\", \"missing_price_count\", \"ingredient_count\", \"cost_per_ingredient\"]\nX_train = train_df[feature_cols]\ny_train = train_df[\"label\"]\nX_test = test_df[feature_cols]\ny_test = test_df[\"label\"]\n# Group sizes: number of recipes per month\ngroup_train = train_df.groupby(\"month\").size().tolist()\ngroup_test = test_df.groupby(\"month\").size().tolist()\n# ----------------------------\n# 12) Fit ranker",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "X_train",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "X_train = train_df[feature_cols]\ny_train = train_df[\"label\"]\nX_test = test_df[feature_cols]\ny_test = test_df[\"label\"]\n# Group sizes: number of recipes per month\ngroup_train = train_df.groupby(\"month\").size().tolist()\ngroup_test = test_df.groupby(\"month\").size().tolist()\n# ----------------------------\n# 12) Fit ranker\n# ----------------------------",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "y_train",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "y_train = train_df[\"label\"]\nX_test = test_df[feature_cols]\ny_test = test_df[\"label\"]\n# Group sizes: number of recipes per month\ngroup_train = train_df.groupby(\"month\").size().tolist()\ngroup_test = test_df.groupby(\"month\").size().tolist()\n# ----------------------------\n# 12) Fit ranker\n# ----------------------------\nranker = LGBMRanker(",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "X_test",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "X_test = test_df[feature_cols]\ny_test = test_df[\"label\"]\n# Group sizes: number of recipes per month\ngroup_train = train_df.groupby(\"month\").size().tolist()\ngroup_test = test_df.groupby(\"month\").size().tolist()\n# ----------------------------\n# 12) Fit ranker\n# ----------------------------\nranker = LGBMRanker(\n    objective=\"lambdarank\",",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "y_test",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "y_test = test_df[\"label\"]\n# Group sizes: number of recipes per month\ngroup_train = train_df.groupby(\"month\").size().tolist()\ngroup_test = test_df.groupby(\"month\").size().tolist()\n# ----------------------------\n# 12) Fit ranker\n# ----------------------------\nranker = LGBMRanker(\n    objective=\"lambdarank\",\n    n_estimators=200,",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "group_train",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "group_train = train_df.groupby(\"month\").size().tolist()\ngroup_test = test_df.groupby(\"month\").size().tolist()\n# ----------------------------\n# 12) Fit ranker\n# ----------------------------\nranker = LGBMRanker(\n    objective=\"lambdarank\",\n    n_estimators=200,\n    learning_rate=0.05,\n    num_leaves=31,",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "group_test",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "group_test = test_df.groupby(\"month\").size().tolist()\n# ----------------------------\n# 12) Fit ranker\n# ----------------------------\nranker = LGBMRanker(\n    objective=\"lambdarank\",\n    n_estimators=200,\n    learning_rate=0.05,\n    num_leaves=31,\n    random_state=42",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "ranker",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "ranker = LGBMRanker(\n    objective=\"lambdarank\",\n    n_estimators=200,\n    learning_rate=0.05,\n    num_leaves=31,\n    random_state=42\n)\nranker.fit(\n    X_train, y_train,\n    group=group_train",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "ingredient_counts",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "ingredient_counts = recipe_ingredients[\"produce\"].value_counts()\ningredient_counts.head(50)\nproduce_keywords = [\n    \"onion\", \"garlic\", \"tomato\", \"pepper\", \"spinach\",\n    \"lettuce\", \"carrot\", \"zucchini\", \"cucumber\",\n    \"apple\", \"lemon\", \"lime\", \"orange\", \"berry\",\n    \"basil\", \"cilantro\", \"parsley\", \"celery\",\n    \"cabbage\", \"broccoli\", \"cauliflower\",\n    \"mushroom\", \"ginger\", \"potato\"\n]",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "produce_keywords",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "produce_keywords = [\n    \"onion\", \"garlic\", \"tomato\", \"pepper\", \"spinach\",\n    \"lettuce\", \"carrot\", \"zucchini\", \"cucumber\",\n    \"apple\", \"lemon\", \"lime\", \"orange\", \"berry\",\n    \"basil\", \"cilantro\", \"parsley\", \"celery\",\n    \"cabbage\", \"broccoli\", \"cauliflower\",\n    \"mushroom\", \"ginger\", \"potato\"\n]\ndf_all[\"is_produce\"] = df_all[\"produce\"].apply(\n    lambda x: any(k in x for k in produce_keywords)",
+        "detail": "demo",
+        "documentation": {}
+    },
+    {
+        "label": "df_all[\"is_produce\"]",
+        "kind": 5,
+        "importPath": "demo",
+        "description": "demo",
+        "peekOfCode": "df_all[\"is_produce\"] = df_all[\"produce\"].apply(\n    lambda x: any(k in x for k in produce_keywords)\n).astype(int)\ningredient_counts.head(50)",
         "detail": "demo",
         "documentation": {}
     }

@@ -157,3 +157,164 @@ recipe_features["baseline_score"] = (
 )
 
 recipe_features.sort_values("baseline_score", ascending=False).head(10)
+
+# ----------------------------
+# 8) Expand recipe ingredients across ALL months (1–12)
+# ----------------------------
+months = pd.DataFrame({"month": list(range(1, 13))})
+
+# Cross join: every (recipe, produce) gets duplicated for every month
+recipe_ingredients_all = recipe_ingredients.drop(columns=["month"], errors="ignore").merge(months, how="cross")
+
+# Merge with seasonality + prices
+df_all = recipe_ingredients_all.merge(
+    produce_seasonality.assign(in_season=1),
+    on=["produce", "month"],
+    how="left"
+)
+df_all["in_season"] = df_all["in_season"].fillna(0).astype(int)
+
+df_all = df_all.merge(
+    produce_prices[["produce", "month", "price_per_unit"]],
+    on=["produce", "month"],
+    how="left"
+)
+
+df_all["missing_price"] = df_all["price_per_unit"].isna().astype(int)
+
+# Fill missing prices using month-specific medians (more stable than global)
+df_all["price_per_unit"] = df_all.groupby("month")["price_per_unit"].transform(
+    lambda s: s.fillna(s.median())
+)
+
+print("Ingredient-level rows across all months:", df_all.shape)
+df_all.head(10)
+
+# ----------------------------
+# 9) Recipe-level features per (recipe_id, month)
+# ----------------------------
+features = df_all.groupby(["recipe_id", "month"]).agg(
+    total_cost=("price_per_unit", "sum"),
+    seasonality_rate=("in_season", "mean"),
+    missing_price_count=("missing_price", "sum"),
+    ingredient_count=("produce", "count"),
+).reset_index()
+
+# A helpful engineered feature:
+features["cost_per_ingredient"] = features["total_cost"] / features["ingredient_count"]
+
+features.head(10)
+
+# ----------------------------
+# 10) Create ranking labels (0,1,2) per month
+# ----------------------------
+def label_month(group):
+    cost_q30 = group["total_cost"].quantile(0.30)
+    cost_q70 = group["total_cost"].quantile(0.70)
+    seas_q30 = group["seasonality_rate"].quantile(0.30)
+    seas_q70 = group["seasonality_rate"].quantile(0.70)
+
+    labels = np.ones(len(group), dtype=int)
+
+    best = (group["total_cost"] <= cost_q30) & (group["seasonality_rate"] >= seas_q70)
+    worst = (group["total_cost"] >= cost_q70) & (group["seasonality_rate"] <= seas_q30)
+
+    labels[best.values] = 2
+    labels[worst.values] = 0
+    return labels
+
+features["label"] = features.groupby("month", group_keys=False).apply(label_month)
+
+# Make sure label is numeric (int)
+features["label"] = pd.to_numeric(features["label"], errors="coerce").fillna(1).astype(int)
+
+features[["recipe_id", "month", "total_cost", "seasonality_rate", "label"]].head(10)
+
+from lightgbm import LGBMRanker
+
+# ----------------------------
+# 11) Train/test split by month
+# ----------------------------
+train_months = [1,2,3,4,5,6,7,8,9]    # train on 9 months
+test_months  = [10,11,12]            # test on last 3 months
+
+train_df = features[features["month"].isin(train_months)].copy()
+test_df  = features[features["month"].isin(test_months)].copy()
+
+feature_cols = ["total_cost", "seasonality_rate", "missing_price_count", "ingredient_count", "cost_per_ingredient"]
+
+X_train = train_df[feature_cols]
+y_train = train_df["label"]
+
+X_test = test_df[feature_cols]
+y_test = test_df["label"]
+
+# Group sizes: number of recipes per month
+group_train = train_df.groupby("month").size().tolist()
+group_test = test_df.groupby("month").size().tolist()
+
+# ----------------------------
+# 12) Fit ranker
+# ----------------------------
+ranker = LGBMRanker(
+    objective="lambdarank",
+    n_estimators=200,
+    learning_rate=0.05,
+    num_leaves=31,
+    random_state=42
+)
+
+ranker.fit(
+    X_train, y_train,
+    group=group_train
+)
+
+print("Model trained.")
+
+############################
+# 13) Evaluate on test set
+
+print("Label distribution overall:")
+print(features["label"].value_counts(normalize=True))
+
+print("\nLabel distribution by month:")
+print(features.groupby("month")["label"].value_counts().unstack(fill_value=0))
+
+print("\nFeature variance check:")
+print(features[feature_cols].describe().T[["mean", "std", "min", "max"]])
+
+###################################
+# What % of ingredient rows matched seasonality?
+
+print("Matched seasonality %:",
+      df_all["in_season"].mean())
+
+# How many unique ingredients in recipes?
+print("Unique ingredients in recipes:",
+      recipe_ingredients["produce"].nunique())
+
+# How many unique produce in seasonality file?
+print("Unique produce in seasonality:",
+      produce_seasonality["produce"].nunique())
+
+
+###################################
+# Produce detection layer 
+
+ingredient_counts = recipe_ingredients["produce"].value_counts()
+ingredient_counts.head(50)
+
+produce_keywords = [
+    "onion", "garlic", "tomato", "pepper", "spinach",
+    "lettuce", "carrot", "zucchini", "cucumber",
+    "apple", "lemon", "lime", "orange", "berry",
+    "basil", "cilantro", "parsley", "celery",
+    "cabbage", "broccoli", "cauliflower",
+    "mushroom", "ginger", "potato"
+]
+
+df_all["is_produce"] = df_all["produce"].apply(
+    lambda x: any(k in x for k in produce_keywords)
+).astype(int)
+
+ingredient_counts.head(50)
