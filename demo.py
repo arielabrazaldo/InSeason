@@ -99,6 +99,9 @@ recipe_ingredients = recipe_ingredients[recipe_ingredients["produce"] != ""]
 print("recipe_ingredients (exploded):", recipe_ingredients.shape)
 recipe_ingredients.head(10)
 
+# commented out to improve run speed
+"""
+
 # ----------------------------
 # 4) Pick a query month (1–12)
 #    (Later we’ll train across all months; for now pick one)
@@ -173,6 +176,7 @@ recipe_features["baseline_score"] = (
 )
 
 recipe_features.sort_values("baseline_score", ascending=False).head(10)
+"""
 
 # ----------------------------
 # 8) Expand recipe ingredients across ALL months (1–12)
@@ -181,6 +185,17 @@ months = pd.DataFrame({"month": list(range(1, 13))})
 
 # Cross join: every (recipe, produce) gets duplicated for every month
 recipe_ingredients_all = recipe_ingredients.drop(columns=["month"], errors="ignore").merge(months, how="cross")
+
+produce_prices["produce"] = produce_prices["produce"].astype(str).str.lower().str.strip()
+produce_seasonality["produce"] = produce_seasonality["produce"].astype(str).str.lower().str.strip()
+produce_prices["produce"] = produce_prices["produce"].apply(normalize_produce)
+produce_seasonality["produce"] = produce_seasonality["produce"].apply(normalize_produce)
+
+produce_prices["month"] = produce_prices["month"].astype(int)
+produce_seasonality["month"] = produce_seasonality["month"].astype(int)
+
+produce_prices = produce_prices.drop_duplicates(subset=["produce", "month"])
+produce_seasonality = produce_seasonality.drop_duplicates(subset=["produce", "month"])
 
 # Merge with seasonality + prices
 df_all = recipe_ingredients_all.merge(
@@ -206,9 +221,9 @@ df_all["price_per_unit"] = df_all.groupby("month")["price_per_unit"].transform(
 print("Ingredient-level rows across all months:", df_all.shape)
 df_all.head(10)
 
-# Debug 1
-print("\nDEBUG: Ingredient-level in-season match rate")
-print("in_season mean:", df_all["in_season"].mean())
+"""
+PASTE THE WHOLE FIRST PIPELINE HERE
+(from Step 9 through the feature variance check)
 
 # ----------------------------
 # 9) Recipe-level features per (recipe_id, month)
@@ -280,8 +295,6 @@ y_test = test_df["label"]
 group_train = train_df.groupby("month").size().tolist()
 group_test = test_df.groupby("month").size().tolist()
 
-# commented out first training section for testing
-'''
 # ----------------------------
 # 12) Fit ranker
 # ----------------------------
@@ -292,7 +305,6 @@ ranker = LGBMRanker(
     num_leaves=31,
     random_state=42
 )
-'''
 
 ranker.fit(
     X_train, y_train,
@@ -326,6 +338,8 @@ print(features[feature_cols].describe().T[["mean", "std", "min", "max"]])
 # # How many unique produce in seasonality file?
 # print("Unique produce in seasonality:",
 #       produce_seasonality["produce"].nunique())
+"""
+
 
 ###################################
 # Produce detection layer 
@@ -416,13 +430,21 @@ features["target_score"] = -features["cost_z"]
 
 # Balanced 3-class labels per month using ranks (robust even with ties)
 def make_tertiles_by_rank(group):
-    r = group["target_score"].rank(method="first")  # breaks ties deterministically
+    r = group["target_score"].rank(method="first")
     q1 = r.quantile(0.33)
     q2 = r.quantile(0.66)
-    return np.select([r <= q1, r <= q2], [0, 1], default=2).astype(int)
+    return np.select([r <= q1, r <= q2], [0, 1], default=2)
 
-features["label"] = features.groupby("month", group_keys=False).apply(make_tertiles_by_rank)
-features["label"] = features["label"].astype(int)
+# IMPORTANT: use transform-like behavior to preserve row alignment
+features["label"] = (
+    features.groupby("month", group_keys=False)
+            .apply(lambda g: pd.Series(make_tertiles_by_rank(g), index=g.index))
+)
+
+# Now safe to convert
+features["label"] = pd.to_numeric(features["label"], errors="coerce").fillna(1).astype(int)
+
+print("NaNs in label:", features["label"].isna().sum())
 
 print("\nDEBUG: Overall label distribution")
 print(features["label"].value_counts())
@@ -479,7 +501,8 @@ ranker = LGBMRanker(
     learning_rate=0.05,
     num_leaves=63,
     min_data_in_leaf=20,
-    random_state=42
+    random_state=42,
+    verbosity=-1
 )
 
 ranker.fit(
@@ -513,10 +536,8 @@ print("\nAverage NDCG@10:", ndcg_results["ndcg@10"].mean())
 
 # baseliine ranking ################
 
-# Baseline score (no ML)
-test_df["baseline_score"] = (
-    test_df["seasonality_rate"] - 0.4 * test_df["cost_z"]
-)
+# compare model vs a simple "sort by cost" baseline
+test_df["baseline_score"] = -test_df["cost_z"]
 
 def ndcg_baseline(df_month, k=10):
     y_true = df_month["label"].values.reshape(1, -1)
@@ -561,7 +582,3 @@ top10 = month_df.head(10)[
 ]
 
 print(top10)
-
-# additional label debugging outputs
-print(features["label"].value_counts())
-print(train_df["label"].value_counts())
