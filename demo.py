@@ -66,6 +66,18 @@ def parse_ingredients(text):
 
     return cleaned
 
+# seasonality joins are failing because ingredient strings in receipes dont match produce tables
+def normalize_produce(s: str) -> str:
+    s = str(s).lower().strip()
+    s = re.sub(r"[^a-z\s]", " ", s)            # remove punctuation/numbers
+    s = re.sub(r"\s+", " ", s).strip()         # collapse spaces
+    # remove common cooking descriptors
+    drop = ["fresh", "frozen", "chopped", "diced", "minced", "sliced", "ground", "organic"]
+    for w in drop:
+        s = re.sub(rf"\b{w}\b", "", s)
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
+
 # Create a list column
 recipes["ingredient_list"] = recipes["ingredients"].apply(parse_ingredients)
 
@@ -81,6 +93,7 @@ recipe_ingredients = recipe_ingredients.rename(columns={"ingredient_list": "prod
 
 # Final cleanup
 recipe_ingredients["produce"] = recipe_ingredients["produce"].astype(str).str.strip()
+recipe_ingredients["produce"] = recipe_ingredients["produce"].apply(normalize_produce)
 recipe_ingredients = recipe_ingredients[recipe_ingredients["produce"] != ""]
 
 print("recipe_ingredients (exploded):", recipe_ingredients.shape)
@@ -100,6 +113,9 @@ recipe_ingredients["month"] = QUERY_MONTH
 # ----------------------------
 produce_prices["produce"] = produce_prices["produce"].astype(str).str.lower().str.strip()
 produce_seasonality["produce"] = produce_seasonality["produce"].astype(str).str.lower().str.strip()
+
+produce_prices["produce"] = produce_prices["produce"].apply(normalize_produce)
+produce_seasonality["produce"] = produce_seasonality["produce"].apply(normalize_produce)
 
 # Ensure month is int
 produce_prices["month"] = produce_prices["month"].astype(int)
@@ -190,6 +206,10 @@ df_all["price_per_unit"] = df_all.groupby("month")["price_per_unit"].transform(
 print("Ingredient-level rows across all months:", df_all.shape)
 df_all.head(10)
 
+# Debug 1
+print("\nDEBUG: Ingredient-level in-season match rate")
+print("in_season mean:", df_all["in_season"].mean())
+
 # ----------------------------
 # 9) Recipe-level features per (recipe_id, month)
 # ----------------------------
@@ -241,6 +261,13 @@ test_months  = [10,11,12]            # test on last 3 months
 train_df = features[features["month"].isin(train_months)].copy()
 test_df  = features[features["month"].isin(test_months)].copy()
 
+# Debug 3
+print("\nDEBUG: Train label distribution")
+print(train_df["label"].value_counts())
+
+print("\nDEBUG: Test label distribution")
+print(test_df["label"].value_counts())
+
 feature_cols = ["total_cost", "seasonality_rate", "missing_price_count", "ingredient_count", "cost_per_ingredient"]
 
 X_train = train_df[feature_cols]
@@ -253,6 +280,8 @@ y_test = test_df["label"]
 group_train = train_df.groupby("month").size().tolist()
 group_test = test_df.groupby("month").size().tolist()
 
+# commented out first training section for testing
+'''
 # ----------------------------
 # 12) Fit ranker
 # ----------------------------
@@ -263,6 +292,7 @@ ranker = LGBMRanker(
     num_leaves=31,
     random_state=42
 )
+'''
 
 ranker.fit(
     X_train, y_train,
@@ -296,7 +326,6 @@ print(features[feature_cols].describe().T[["mean", "std", "min", "max"]])
 # # How many unique produce in seasonality file?
 # print("Unique produce in seasonality:",
 #       produce_seasonality["produce"].nunique())
-
 
 ###################################
 # Produce detection layer 
@@ -354,6 +383,10 @@ features["seasonality_rate"] = np.where(
     0
 )
 
+# debug 2
+print("\nDEBUG: Recipe-level seasonality stats")
+print(features["seasonality_rate"].describe())
+
 features["cost_per_ingredient"] = features["total_cost"] / features["ingredient_count"]
 
 # print(features["seasonality_rate"].describe())
@@ -373,23 +406,39 @@ features["cost_z"] = features.groupby("month")["total_cost"].transform(
 )
 
 # Higher is better: more in-season, lower cost
-features["target_score"] = features["seasonality_rate"] - 0.4 * features["cost_z"]
+# **************************************************
+# seasonlity_rate is mostly 0 due to mapping issues
+# train using cost only so labels don't collapse
+# changing this:
+# features["target_score"] = features["seasonality_rate"] - 0.4 * features["cost_z"]
+# makes labels depend on cost only, which should immediately produce 0/1/2 lables and stop LightGBM warnings
+features["target_score"] = -features["cost_z"]
 
-# Balanced 3-class labels per month
-def make_tertiles(group):
-    q1 = group["target_score"].quantile(0.33)
-    q2 = group["target_score"].quantile(0.66)
-    return pd.cut(
-        group["target_score"],
-        bins=[-np.inf, q1, q2, np.inf],
-        labels=[0, 1, 2]
-    ).astype(int)
+# Balanced 3-class labels per month using ranks (robust even with ties)
+def make_tertiles_by_rank(group):
+    r = group["target_score"].rank(method="first")  # breaks ties deterministically
+    q1 = r.quantile(0.33)
+    q2 = r.quantile(0.66)
+    return np.select([r <= q1, r <= q2], [0, 1], default=2).astype(int)
 
-features["label"] = features.groupby("month", group_keys=False).apply(make_tertiles)
+features["label"] = features.groupby("month", group_keys=False).apply(make_tertiles_by_rank)
+features["label"] = features["label"].astype(int)
+
+print("\nDEBUG: Overall label distribution")
+print(features["label"].value_counts())
 
 print("Label distribution:")
 print(features["label"].value_counts(normalize=True))
 
+# --- confirms whether seasonlity is bascially always 0 and whether labels are balanced ---
+print("\nLabel counts (raw):")
+print(features["label"].value_counts())
+
+print("\nSeasonality stats:")
+print(features["seasonality_rate"].describe())
+
+print("\nIn-season match rate at ingredient-row level:")
+print("in_season mean:", df_all["in_season"].mean())
 
 # Training LightGBM training with the new features and labels
 
@@ -399,6 +448,13 @@ test_months  = [10,11,12]
 
 train_df = features[features["month"].isin(train_months)].copy()
 test_df  = features[features["month"].isin(test_months)].copy()
+
+# --- verify that labels aren't collapsing right before training ---
+print("\nTrain label distribution:")
+print(train_df["label"].value_counts())
+
+print("\nTest label distribution:")
+print(test_df["label"].value_counts())
 
 feature_cols = [
     "total_cost",
@@ -416,12 +472,13 @@ y_test = test_df["label"]
 
 group_train = train_df.groupby("month").size().tolist()
 
+# ---changing min_data_in_leaf to 20 more stable to reduce "no positive gain" warnings when features are weak ---
 ranker = LGBMRanker(
     objective="lambdarank",
     n_estimators=300,
     learning_rate=0.05,
     num_leaves=63,
-    min_data_in_leaf=5,
+    min_data_in_leaf=20,
     random_state=42
 )
 
@@ -504,3 +561,7 @@ top10 = month_df.head(10)[
 ]
 
 print(top10)
+
+# additional label debugging outputs
+print(features["label"].value_counts())
+print(train_df["label"].value_counts())
