@@ -206,50 +206,60 @@ features["cost_per_ingredient"] = features["total_cost"] / features["ingredient_
 features.head(10)
 
 # ----------------------------
-# 10) Create ranking labels (0,1,2) per month
+# 10) Continuous Relevance Score (replaces tertile binning / ranking labels (0,1,2) per month)
 # ----------------------------
-def label_month(group):
-    cost_q30 = group["total_cost"].quantile(0.30)
-    cost_q70 = group["total_cost"].quantile(0.70)
-    seas_q30 = group["seasonality_rate"].quantile(0.30)
-    seas_q70 = group["seasonality_rate"].quantile(0.70)
+# Normalize features to 0-1 scale within each month
+features["cost_normalized"] = features.groupby("month")["total_cost"].transform(
+    lambda s: (s - s.min()) / (s.max() - s.min() + 1e-9)
+)
 
-    labels = np.ones(len(group), dtype=int)
+features["seasonality_normalized"] = features["seasonality_rate"]  # Already 0-1
 
-    best = (group["total_cost"] <= cost_q30) & (group["seasonality_rate"] >= seas_q70)
-    worst = (group["total_cost"] >= cost_q70) & (group["seasonality_rate"] <= seas_q30)
+# Create continuous relevance score
+# Higher is better: high seasonality (good), low cost (good)
+# Invert cost so higher = better
+features["relevance_score"] = (
+    0.6 * features["seasonality_normalized"] +  # 60% weight on seasonality
+    0.4 * (1 - features["cost_normalized"])     # 40% weight on low cost
+)
 
-    labels[best.values] = 2
-    labels[worst.values] = 0
-    return labels
+# This gives us a continuous score from 0 to 1
+print("Relevance score distribution:")
+print(features["relevance_score"].describe())
 
-features["label"] = features.groupby("month", group_keys=False).apply(label_month)
-
-# Make sure label is numeric (int)
-features["label"] = pd.to_numeric(features["label"], errors="coerce").fillna(1).astype(int)
-
-features[["recipe_id", "month", "total_cost", "seasonality_rate", "label"]].head(10)
+# Visualize the distribution
+import matplotlib.pyplot as plt
+plt.hist(features["relevance_score"], bins=50, edgecolor='black')
+plt.xlabel("Relevance Score")
+plt.ylabel("Frequency")
+plt.title("Distribution of Continuous Relevance Scores")
+plt.show()
 
 from lightgbm import LGBMRanker
 
 # ----------------------------
-# 11) Train/test split by month
+# 11) Train with continuous relevance
 # ----------------------------
-train_months = [1,2,3,4,5,6,7,8,9]    # train on 9 months
-test_months  = [10,11,12]            # test on last 3 months
+train_months = [1,2,3,4,5,6,7,8,9]
+test_months  = [10,11,12]
 
 train_df = features[features["month"].isin(train_months)].copy()
 test_df  = features[features["month"].isin(test_months)].copy()
 
-feature_cols = ["total_cost", "seasonality_rate", "missing_price_count", "ingredient_count", "cost_per_ingredient"]
+feature_cols = [
+    "total_cost",
+    "seasonality_rate",
+    "missing_price_count",
+    "ingredient_count",
+    "cost_per_ingredient"
+]
 
 X_train = train_df[feature_cols]
-y_train = train_df["label"]
+y_train = train_df["relevance_score"]  # ← Continuous now!
 
 X_test = test_df[feature_cols]
-y_test = test_df["label"]
+y_test = test_df["relevance_score"]
 
-# Group sizes: number of recipes per month
 group_train = train_df.groupby("month").size().tolist()
 group_test = test_df.groupby("month").size().tolist()
 
@@ -258,11 +268,14 @@ group_test = test_df.groupby("month").size().tolist()
 # ----------------------------
 ranker = LGBMRanker(
     objective="lambdarank",
-    n_estimators=200,
+    n_estimators=300,
     learning_rate=0.05,
-    num_leaves=31,
-    random_state=42
+    num_leaves=63,
+    min_data_in_leaf=5,
+    random_state=42,
+    verbosity=-1
 )
+
 
 ranker.fit(
     X_train, y_train,
@@ -270,6 +283,9 @@ ranker.fit(
 )
 
 print("Model trained.")
+
+# Predict
+test_df["pred_continuous"] = ranker.predict(X_test)
 
 ############################
 # 13) Evaluate on test set
@@ -445,15 +461,19 @@ def ndcg_at_k(df_month, k=10):
     y_score = df_month["pred"].values.reshape(1, -1)
     return ndcg_score(y_true, y_score, k=k)
 
-results = []
+# Calculate NDCG with continuous relevance scores
+continuous_results = []
 
 for m, g in test_df.groupby("month"):
-    score = ndcg_at_k(g, k=10)
-    results.append((m, score))
+    y_true = g["relevance_score"].values.reshape(1, -1)
+    y_pred = g["pred_continuous"].values.reshape(1, -1)
+    score = ndcg_score(y_true, y_pred, k=10)
+    continuous_results.append((m, score))
 
-ndcg_results = pd.DataFrame(results, columns=["month", "ndcg@10"])
-print(ndcg_results)
-print("\nAverage NDCG@10:", ndcg_results["ndcg@10"].mean())
+continuous_ndcg = pd.DataFrame(continuous_results, columns=["month", "ndcg@10"])
+print("\n=== Continuous Relevance Model ===")
+print(continuous_ndcg)
+print(f"Average NDCG@10: {continuous_ndcg['ndcg@10'].mean():.4f}")
 
 # baseliine ranking ################
 
