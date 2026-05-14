@@ -421,8 +421,9 @@ ranker = LGBMRanker(
     n_estimators=300,
     learning_rate=0.05,
     num_leaves=63,
-    min_data_in_leaf=5,
-    random_state=42
+    min_data_in_leaf=1,
+    random_state=42,
+    verbosity=-1  # suppress warnings
 )
 
 ranker.fit(
