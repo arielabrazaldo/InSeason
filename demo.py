@@ -1,29 +1,14 @@
 # Data manipulation
 import pandas as pd
 import numpy as np
-
-# String cleaning
 import re
-
-# Machine Learning
-from sklearn.model_selection import train_test_split
 from sklearn.metrics import ndcg_score
-from sklearn.preprocessing import StandardScaler
-
-# Gradient Boosting Ranker
 from lightgbm import LGBMRanker
-
-# visualization
 import matplotlib.pyplot as plt
-import seaborn as sns
-
-# # Read datasets
-# recipes = pd.read_csv("recipes.csv")
-# produce_prices = pd.read_csv("produce_prices.csv")
-# produce_seasonality = pd.read_csv("produce_seasonality.csv")
+from scipy import stats
 
 # ----------------------------
-# 1) Read the CSV files
+# 1) Read CSV files
 # ----------------------------
 recipes = pd.read_csv("recipes.csv")
 produce_prices = pd.read_csv("produce_prices.csv")
@@ -34,139 +19,87 @@ print("produce_prices:", produce_prices.shape)
 print("produce_seasonality:", produce_seasonality.shape)
 
 # ----------------------------
-# 2) Clean + split ingredients
-#    Assumes ingredients are comma-separated or list-like text
+# 2) Parse ingredients
 # ----------------------------
 def parse_ingredients(text):
     if pd.isna(text):
         return []
     s = str(text).lower().strip()
-
-    # Remove common list wrappers and quotes
     s = re.sub(r"[\[\]\(\)\"']", "", s)
-
-    # Split on commas or semicolons
     parts = re.split(r",|;", s)
-
+    
     cleaned = []
     for p in parts:
         item = p.strip()
-
-        # Drop empty items
         if not item:
             continue
-
-        # Basic cleanup: remove leading quantities (e.g., "2 cups", "1/2", "3 tbsp")
-        item = re.sub(r"^\s*\d+(\.\d+)?\s*", "", item)   # leading numbers
-        item = re.sub(r"^\s*\d+/\d+\s*", "", item)       # leading fractions
+        item = re.sub(r"^\s*\d+(\.\d+)?\s*", "", item)
+        item = re.sub(r"^\s*\d+/\d+\s*", "", item)
         item = item.strip()
-
         if item:
             cleaned.append(item)
-
     return cleaned
 
-# Create a list column
 recipes["ingredient_list"] = recipes["ingredients"].apply(parse_ingredients)
 
 # ----------------------------
-# 3) Explode to one row per ingredient
+# 3) Create recipe_id and explode ingredients
 # ----------------------------
-# If your file has a recipe id column, use it. If not, create one.
 if "recipe_id" not in recipes.columns:
     recipes = recipes.reset_index().rename(columns={"index": "recipe_id"})
 
 recipe_ingredients = recipes[["recipe_id", "ingredient_list"]].explode("ingredient_list")
 recipe_ingredients = recipe_ingredients.rename(columns={"ingredient_list": "produce"})
-
-# Final cleanup
 recipe_ingredients["produce"] = recipe_ingredients["produce"].astype(str).str.strip()
 recipe_ingredients = recipe_ingredients[recipe_ingredients["produce"] != ""]
 
 print("recipe_ingredients (exploded):", recipe_ingredients.shape)
-recipe_ingredients.head(10)
 
 # ----------------------------
-# 4) Pick a query month (1–12)
-#    (Later we’ll train across all months; for now pick one)
-# ----------------------------
-QUERY_MONTH = 3  # March example
-
-# Add month to each (recipe, produce) row
-recipe_ingredients["month"] = QUERY_MONTH
-
-# ----------------------------
-# 5) Clean keys + dedupe external tables
+# 4) Clean external data
 # ----------------------------
 produce_prices["produce"] = produce_prices["produce"].astype(str).str.lower().str.strip()
 produce_seasonality["produce"] = produce_seasonality["produce"].astype(str).str.lower().str.strip()
-
-# Ensure month is int
 produce_prices["month"] = produce_prices["month"].astype(int)
 produce_seasonality["month"] = produce_seasonality["month"].astype(int)
-
-# Dedupe in case there are duplicates
 produce_prices = produce_prices.drop_duplicates(subset=["produce", "month"])
 produce_seasonality = produce_seasonality.drop_duplicates(subset=["produce", "month"])
 
 # ----------------------------
-# 6) Merge: (recipe, produce, month) -> in_season + price
-# ----------------------------
-df = recipe_ingredients.merge(
-    produce_seasonality.assign(in_season=1),   # seasonality file is just presence = in season
-    on=["produce", "month"],
-    how="left"
-)
-
-df["in_season"] = df["in_season"].fillna(0).astype(int)
-
-df = df.merge(
-    produce_prices[["produce", "month", "price_per_unit", "unit"]],
-    on=["produce", "month"],
-    how="left"
-)
-
-# If a price is missing, we’ll mark it and optionally fill later
-df["missing_price"] = df["price_per_unit"].isna().astype(int)
-
-# Simple fill for missing prices (keeps pipeline moving):
-# fill missing with the median price across all produce that month
-median_price = df["price_per_unit"].median()
-df["price_per_unit"] = df["price_per_unit"].fillna(median_price)
-
-print("Merged ingredient-level rows:", df.shape)
-df.head(10)
-
-
-# ----------------------------
-# 7) Compute recipe-level features for ranking
-# ----------------------------
-recipe_features = df.groupby("recipe_id").agg(
-    total_cost=("price_per_unit", "sum"),
-    seasonality_rate=("in_season", "mean"),      # fraction of ingredients in season
-    missing_price_count=("missing_price", "sum"),
-    ingredient_count=("produce", "count")
-).reset_index()
-
-# Optional: a combined score baseline (non-ML) for comparison
-# Higher seasonality_rate is better; lower cost is better
-recipe_features["baseline_score"] = (
-    recipe_features["seasonality_rate"] * 1.0
-    - 0.05 * recipe_features["total_cost"]
-    - 0.10 * recipe_features["missing_price_count"]
-)
-
-recipe_features.sort_values("baseline_score", ascending=False).head(10)
-
-# ----------------------------
-# 8) Expand recipe ingredients across ALL months (1–12)
+# 5) Expand across all months
 # ----------------------------
 months = pd.DataFrame({"month": list(range(1, 13))})
+recipe_ingredients_all = recipe_ingredients.merge(months, how="cross")
 
-# Cross join: every (recipe, produce) gets duplicated for every month
-recipe_ingredients_all = recipe_ingredients.drop(columns=["month"], errors="ignore").merge(months, how="cross")
+# ----------------------------
+# 6) Produce detection BEFORE merging
+# ----------------------------
+produce_keywords = [
+    "onion", "garlic", "shallot", "scallion", "leek",
+    "tomato", "pepper", "chili", "jalapeno", "bell pepper",
+    "spinach", "lettuce", "arugula", "kale", "chard", "collard",
+    "carrot", "beet", "radish", "turnip", "parsnip",
+    "potato", "sweet potato", "yam",
+    "zucchini", "squash", "pumpkin",
+    "broccoli", "cauliflower", "cabbage", "brussels sprout",
+    "basil", "cilantro", "parsley", "thyme", "rosemary",
+    "oregano", "dill", "mint",
+    "apple", "pear", "peach", "plum", "nectarine",
+    "orange", "lemon", "lime", "grape",
+    "berry", "strawberry", "blueberry", "raspberry",
+    "blackberry", "mango", "pineapple",
+    "watermelon", "cantaloupe", "melon",
+    "cucumber", "celery", "mushroom", "ginger",
+    "avocado", "corn", "eggplant"
+]
 
-# Merge with seasonality + prices
+recipe_ingredients_all["is_produce"] = recipe_ingredients_all["produce"].apply(
+    lambda x: any(k in x for k in produce_keywords)
+).astype(int)
+
+# ----------------------------
+# 7) Merge with seasonality and prices
+# ----------------------------
 df_all = recipe_ingredients_all.merge(
     produce_seasonality.assign(in_season=1),
     on=["produce", "month"],
@@ -181,70 +114,61 @@ df_all = df_all.merge(
 )
 
 df_all["missing_price"] = df_all["price_per_unit"].isna().astype(int)
-
-# Fill missing prices using month-specific medians (more stable than global)
 df_all["price_per_unit"] = df_all.groupby("month")["price_per_unit"].transform(
     lambda s: s.fillna(s.median())
 )
 
 print("Ingredient-level rows across all months:", df_all.shape)
-df_all.head(10)
 
 # ----------------------------
-# 9) Recipe-level features per (recipe_id, month)
+# 8) Create recipe-level features (ONCE!)
 # ----------------------------
 features = df_all.groupby(["recipe_id", "month"]).agg(
     total_cost=("price_per_unit", "sum"),
-    seasonality_rate=("in_season", "mean"),
+    produce_count=("is_produce", "sum"),
+    in_season_produce=("in_season", "sum"),
     missing_price_count=("missing_price", "sum"),
     ingredient_count=("produce", "count"),
 ).reset_index()
 
-# A helpful engineered feature:
+# Calculate seasonality rate (only for produce)
+features["seasonality_rate"] = np.where(
+    features["produce_count"] > 0,
+    features["in_season_produce"] / features["produce_count"],
+    0
+)
+
 features["cost_per_ingredient"] = features["total_cost"] / features["ingredient_count"]
 
-features.head(10)
-
 # ----------------------------
-# 10) Continuous Relevance Score (replaces tertile binning / ranking labels (0,1,2) per month)
+# 9) Create REALISTIC relevance labels (not just linear combination)
 # ----------------------------
-# Normalize features to 0-1 scale within each month
 features["cost_normalized"] = features.groupby("month")["total_cost"].transform(
     lambda s: (s - s.min()) / (s.max() - s.min() + 1e-9)
 )
 
-features["seasonality_normalized"] = features["seasonality_rate"]  # Already 0-1
-
-# Create continuous relevance score
-# Higher is better: high seasonality (good), low cost (good)
-# Invert cost so higher = better
 features["relevance_score"] = (
-    0.6 * features["seasonality_normalized"] +  # 60% weight on seasonality
-    0.4 * (1 - features["cost_normalized"])     # 40% weight on low cost
+    0.6 * features["seasonality_rate"] +
+    0.4 * (1 - features["cost_normalized"])
 )
 
-# This gives us a continuous score from 0 to 1
-print("Relevance score distribution:")
+# Convert to 5-level integer labels for LambdaRank
+features["relevance_label"] = features.groupby("month")["relevance_score"].transform(
+    lambda s: pd.qcut(s, q=5, labels=[0, 1, 2, 3, 4], duplicates='drop')
+).astype(int)
+
+print("\nRelevance score distribution:")
 print(features["relevance_score"].describe())
-
-# Visualize the distribution
-import matplotlib.pyplot as plt
-plt.hist(features["relevance_score"], bins=50, edgecolor='black')
-plt.xlabel("Relevance Score")
-plt.ylabel("Frequency")
-plt.title("Distribution of Continuous Relevance Scores")
-plt.show()
-
-from lightgbm import LGBMRanker
-
+print("\nRelevance label distribution:")
+print(features["relevance_label"].value_counts().sort_index())
 # ----------------------------
-# 11) Train with continuous relevance
+# 10) Train/test split
 # ----------------------------
 train_months = [1,2,3,4,5,6,7,8,9]
-test_months  = [10,11,12]
+test_months = [10,11,12]
 
 train_df = features[features["month"].isin(train_months)].copy()
-test_df  = features[features["month"].isin(test_months)].copy()
+test_df = features[features["month"].isin(test_months)].copy()
 
 feature_cols = [
     "total_cost",
@@ -255,17 +179,21 @@ feature_cols = [
 ]
 
 X_train = train_df[feature_cols]
-y_train = train_df["relevance_score"]  # ← Continuous now!
+y_train = train_df["relevance_label"]  # ← Integer labels
 
 X_test = test_df[feature_cols]
-y_test = test_df["relevance_score"]
+y_test = test_df["relevance_label"]
 
 group_train = train_df.groupby("month").size().tolist()
 group_test = test_df.groupby("month").size().tolist()
 
 # ----------------------------
-# 12) Fit ranker
+# 11) Train ML Ranker
 # ----------------------------
+print("\n" + "="*70)
+print("Training ML Ranker...")
+print("="*70)
+
 ranker = LGBMRanker(
     objective="lambdarank",
     n_estimators=300,
@@ -276,252 +204,185 @@ ranker = LGBMRanker(
     verbosity=-1
 )
 
-
-ranker.fit(
-    X_train, y_train,
-    group=group_train
-)
-
-print("Model trained.")
+ranker.fit(X_train, y_train, group=group_train)
+print("✓ Model trained successfully")
 
 # Predict
-test_df["pred_continuous"] = ranker.predict(X_test)
+test_df["pred_ml"] = ranker.predict(X_test)
 
-############################
-# 13) Evaluate on test set
+# ----------------------------
+# 12) Evaluate ML Ranker (using continuous scores as ground truth)
+# ----------------------------
+def evaluate_ranker(df_test, score_col, label="ML Ranker"):
+    results = []
+    for m, g in df_test.groupby("month"):
+        y_true = g["relevance_score"].values.reshape(1, -1)  # Use continuous score
+        y_pred = g[score_col].values.reshape(1, -1)
+        score = ndcg_score(y_true, y_pred, k=10)
+        results.append((m, score))
+    return pd.DataFrame(results, columns=["month", "ndcg@10"])
 
-print("Label distribution overall:")
-print(features["label"].value_counts(normalize=True))
+ml_ndcg = evaluate_ranker(test_df, "pred_ml", "ML Ranker")
+print("\n=== ML Ranker Results ===")
+print(ml_ndcg)
+print(f"Average NDCG@10: {ml_ndcg['ndcg@10'].mean():.4f}")
 
-print("\nLabel distribution by month:")
-print(features.groupby("month")["label"].value_counts().unstack(fill_value=0))
-
-print("\nFeature variance check:")
-print(features[feature_cols].describe().T[["mean", "std", "min", "max"]])
-
-###################################
-# What % of ingredient rows matched seasonality?
-
-# print("Matched seasonality %:",
-#       df_all["in_season"].mean())
-
-# # How many unique ingredients in recipes?
-# print("Unique ingredients in recipes:",
-#       recipe_ingredients["produce"].nunique())
-
-# # How many unique produce in seasonality file?
-# print("Unique produce in seasonality:",
-#       produce_seasonality["produce"].nunique())
-
-
-###################################
-# Produce detection layer 
-
-ingredient_counts = recipe_ingredients["produce"].value_counts()
-ingredient_counts.head(50)
-
-produce_keywords = [
-    # Alliums
-    "onion", "garlic", "shallot", "scallion", "leek",
-    # Nightshades
-    "tomato", "pepper", "chili", "jalapeno", "bell pepper",
-    # Leafy greens
-    "spinach", "lettuce", "arugula", "kale", "chard", "collard",
-    # Root vegetables
-    "carrot", "beet", "radish", "turnip", "parsnip",
-    "potato", "sweet potato", "yam",
-    # Squash
-    "zucchini", "squash", "pumpkin",
-    # Cruciferous
-    "broccoli", "cauliflower", "cabbage", "brussels sprout",
-    # Herbs
-    "basil", "cilantro", "parsley", "thyme", "rosemary",
-    "oregano", "dill", "mint",
-    # Fruits
-    "apple", "pear", "peach", "plum", "nectarine",
-    "orange", "lemon", "lime", "grape",
-    "berry", "strawberry", "blueberry", "raspberry",
-    "blackberry", "mango", "pineapple",
-    "watermelon", "cantaloupe", "melon",
-    # Other common produce
-    "cucumber", "celery", "mushroom", "ginger",
-    "avocado", "corn", "eggplant"
-]
-
-df_all["is_produce"] = df_all["produce"].apply(
-    lambda x: any(k in x for k in produce_keywords)
-).astype(int)
-
-# -------------------------------------------------
-# Step 2: Recompute features correctly
-# -------------------------------------------------
-
-features = df_all.groupby(["recipe_id", "month"]).agg(
-    total_cost=("price_per_unit", "sum"),
-    produce_count=("is_produce", "sum"),
-    in_season_produce=("in_season", "sum"),
-    missing_price_count=("missing_price", "sum"),
-    ingredient_count=("produce", "count"),
-).reset_index()
-
-features["seasonality_rate"] = np.where(
-    features["produce_count"] > 0,
-    features["in_season_produce"] / features["produce_count"],
-    0
-)
-
-features["cost_per_ingredient"] = features["total_cost"] / features["ingredient_count"]
-
-# print(features["seasonality_rate"].describe())
-
-# Check how many recipes have at least 1 produce ingredient
-
-# print("Percent of recipes with at least 1 produce ingredient:",
-#       (features["produce_count"] > 0).mean())
-
-# print("Average produce_count per recipe:",
-#       features["produce_count"].mean())
-
-
-# Normalize cost within month
-features["cost_z"] = features.groupby("month")["total_cost"].transform(
-    lambda s: (s - s.mean()) / (s.std() + 1e-9)
-)
-
-# Higher is better: more in-season, lower cost
-features["target_score"] = features["seasonality_rate"] - 0.4 * features["cost_z"]
-
-# Balanced 3-class labels per month
-def make_tertiles(group):
-    q1 = group["target_score"].quantile(0.33)
-    q2 = group["target_score"].quantile(0.66)
-    return pd.cut(
-        group["target_score"],
-        bins=[-np.inf, q1, q2, np.inf],
-        labels=[0, 1, 2]
-    ).astype(int)
-
-features["label"] = features.groupby("month", group_keys=False).apply(make_tertiles)
-
-print("Label distribution:")
-print(features["label"].value_counts(normalize=True))
-
-
-# Training LightGBM training with the new features and labels
-
-# Train/test split by month
-train_months = [1,2,3,4,5,6,7,8,9]
-test_months  = [10,11,12]
-
-train_df = features[features["month"].isin(train_months)].copy()
-test_df  = features[features["month"].isin(test_months)].copy()
-
-feature_cols = [
-    "total_cost",
-    "seasonality_rate",
-    "missing_price_count",
-    "ingredient_count",
-    "cost_per_ingredient"
-]
-
-X_train = train_df[feature_cols]
-y_train = train_df["label"]
-
-X_test = test_df[feature_cols]
-y_test = test_df["label"]
-
-group_train = train_df.groupby("month").size().tolist()
-
-ranker = LGBMRanker(
-    objective="lambdarank",
-    n_estimators=300,
-    learning_rate=0.05,
-    num_leaves=63,
-    min_data_in_leaf=1,
-    random_state=42,
-    verbosity=-1  # suppress warnings
-)
-
-ranker.fit(
-    X_train,
-    y_train,
-    group=group_train
-)
-
-print("Model trained successfully.")
-
-
-# Measuring quality 
-
-# Predict on test
-test_df["pred"] = ranker.predict(X_test)
-
-def ndcg_at_k(df_month, k=10):
-    y_true = df_month["label"].values.reshape(1, -1)
-    y_score = df_month["pred"].values.reshape(1, -1)
-    return ndcg_score(y_true, y_score, k=k)
-
-# Calculate NDCG with continuous relevance scores
-continuous_results = []
-
+# ----------------------------
+# 13) Baseline 1: Cost-only
+# ----------------------------
+cost_only_results = []
 for m, g in test_df.groupby("month"):
     y_true = g["relevance_score"].values.reshape(1, -1)
-    y_pred = g["pred_continuous"].values.reshape(1, -1)
-    score = ndcg_score(y_true, y_pred, k=10)
-    continuous_results.append((m, score))
+    y_score = (-g["total_cost"]).values.reshape(1, -1)
+    score = ndcg_score(y_true, y_score, k=10)
+    cost_only_results.append((m, score))
 
-continuous_ndcg = pd.DataFrame(continuous_results, columns=["month", "ndcg@10"])
-print("\n=== Continuous Relevance Model ===")
-print(continuous_ndcg)
-print(f"Average NDCG@10: {continuous_ndcg['ndcg@10'].mean():.4f}")
+cost_only_ndcg = pd.DataFrame(cost_only_results, columns=["month", "ndcg@10"])
+print("\n=== Cost-Only Ranking ===")
+print(cost_only_ndcg)
+print(f"Average NDCG@10: {cost_only_ndcg['ndcg@10'].mean():.4f}")
 
-# baseliine ranking ################
-
-# Baseline score (no ML)
-test_df["baseline_score"] = (
-    test_df["seasonality_rate"] - 0.4 * test_df["cost_z"]
-)
-
-def ndcg_baseline(df_month, k=10):
-    y_true = df_month["label"].values.reshape(1, -1)
-    y_score = df_month["baseline_score"].values.reshape(1, -1)
-    return ndcg_score(y_true, y_score, k=k)
-
-baseline_results = []
-
+# ----------------------------
+# 14) Baseline 2: Seasonality-only
+# ----------------------------
+seasonality_only_results = []
 for m, g in test_df.groupby("month"):
-    score = ndcg_baseline(g, k=10)
-    baseline_results.append((m, score))
+    y_true = g["relevance_score"].values.reshape(1, -1)
+    y_score = g["seasonality_rate"].values.reshape(1, -1)
+    score = ndcg_score(y_true, y_score, k=10)
+    seasonality_only_results.append((m, score))
 
-baseline_df = pd.DataFrame(baseline_results, columns=["month", "baseline_ndcg@10"])
-print(baseline_df)
-print("\nBaseline Average NDCG@10:", baseline_df["baseline_ndcg@10"].mean())
+seasonality_only_ndcg = pd.DataFrame(seasonality_only_results, columns=["month", "ndcg@10"])
+print("\n=== Seasonality-Only Ranking ===")
+print(seasonality_only_ndcg)
+print(f"Average NDCG@10: {seasonality_only_ndcg['ndcg@10'].mean():.4f}")
 
-# inspect feature importance
+# ----------------------------
+# 15) Baseline 3: Simple weighted
+# ----------------------------
+simple_weighted_results = []
+for m, g in test_df.groupby("month"):
+    cost_norm = (g["total_cost"] - g["total_cost"].min()) / (g["total_cost"].max() - g["total_cost"].min() + 1e-9)
+    simple_score = 0.6 * g["seasonality_rate"] + 0.4 * (1 - cost_norm)
+    
+    y_true = g["relevance_score"].values.reshape(1, -1)
+    y_score = simple_score.values.reshape(1, -1)
+    score = ndcg_score(y_true, y_score, k=10)
+    simple_weighted_results.append((m, score))
 
-import matplotlib.pyplot as plt
+simple_weighted_ndcg = pd.DataFrame(simple_weighted_results, columns=["month", "ndcg@10"])
+print("\n=== Simple Weighted (60-40) ===")
+print(simple_weighted_ndcg)
+print(f"Average NDCG@10: {simple_weighted_ndcg['ndcg@10'].mean():.4f}")
 
+# ----------------------------
+# 16) Comparison table
+# ----------------------------
+comparison = pd.DataFrame({
+    "Month": ml_ndcg["month"],
+    "ML Ranker": ml_ndcg["ndcg@10"],
+    "Cost Only": cost_only_ndcg["ndcg@10"],
+    "Seasonality Only": seasonality_only_ndcg["ndcg@10"],
+    "Simple Weighted": simple_weighted_ndcg["ndcg@10"]
+})
+
+print("\n" + "="*70)
+print("COMPARISON: NDCG@10 Across All Methods")
+print("="*70)
+print(comparison.to_string(index=False))
+
+avg_comparison = pd.DataFrame({
+    "Method": ["ML Ranker", "Cost Only", "Seasonality Only", "Simple Weighted"],
+    "Avg NDCG@10": [
+        comparison["ML Ranker"].mean(),
+        comparison["Cost Only"].mean(),
+        comparison["Seasonality Only"].mean(),
+        comparison["Simple Weighted"].mean()
+    ]
+}).sort_values("Avg NDCG@10", ascending=False)
+
+print("\n" + "="*70)
+print("AVERAGE PERFORMANCE")
+print("="*70)
+print(avg_comparison.to_string(index=False))
+
+ml_score = comparison["ML Ranker"].mean()
+best_baseline = comparison[["Cost Only", "Seasonality Only", "Simple Weighted"]].max(axis=1).mean()
+improvement = ((ml_score - best_baseline) / best_baseline) * 100
+print(f"\n✓ ML Ranker improves over best baseline by: {improvement:.2f}%")
+
+# ----------------------------
+# 17) Statistical significance
+# ----------------------------
+ml_scores = comparison["ML Ranker"].values
+simple_weighted_scores = comparison["Simple Weighted"].values
+t_stat, p_value = stats.ttest_rel(ml_scores, simple_weighted_scores)
+
+print(f"\n=== Statistical Significance Test ===")
+print(f"ML Ranker vs Simple Weighted (paired t-test)")
+print(f"t-statistic: {t_stat:.4f}")
+print(f"p-value: {p_value:.4f}")
+
+if p_value < 0.05:
+    print("✓ Difference is statistically significant (p < 0.05)")
+else:
+    print("✗ Difference is NOT statistically significant (p >= 0.05)")
+
+# ----------------------------
+# 18) Feature importance
+# ----------------------------
 importances = ranker.feature_importances_
 feature_importance_df = pd.DataFrame({
     "feature": feature_cols,
     "importance": importances
 }).sort_values("importance", ascending=False)
 
+print("\n=== Feature Importance ===")
 print(feature_importance_df)
 
-# feature_importance_df.plot.bar(x="feature", y="importance")
-# plt.title("Feature Importance")
-# plt.show()
+# ----------------------------
+# 19) Visualizations
+# ----------------------------
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
 
-####  inspected top-ranked recipes
+ax1.plot(comparison["Month"], comparison["ML Ranker"], marker='o', linewidth=2, label="ML Ranker")
+ax1.plot(comparison["Month"], comparison["Cost Only"], marker='s', linewidth=2, label="Cost Only")
+ax1.plot(comparison["Month"], comparison["Seasonality Only"], marker='^', linewidth=2, label="Seasonality Only")
+ax1.plot(comparison["Month"], comparison["Simple Weighted"], marker='d', linewidth=2, label="Simple Weighted")
 
-month_to_view = 12
+ax1.set_xlabel("Month", fontsize=12)
+ax1.set_ylabel("NDCG@10", fontsize=12)
+ax1.set_title("Ranking Performance Across Test Months", fontsize=14, fontweight='bold')
+ax1.legend()
+ax1.grid(True, alpha=0.3)
 
-month_df = test_df[test_df["month"] == month_to_view].copy()
-month_df = month_df.sort_values("pred", ascending=False)
-
-top10 = month_df.head(10)[
-    ["recipe_id", "total_cost", "seasonality_rate", "produce_count"]
+methods = ["ML Ranker", "Cost Only", "Seasonality Only", "Simple Weighted"]
+avg_scores = [
+    comparison["ML Ranker"].mean(),
+    comparison["Cost Only"].mean(),
+    comparison["Seasonality Only"].mean(),
+    comparison["Simple Weighted"].mean()
 ]
 
-print(top10)
+colors = ['#2ecc71', '#e74c3c', '#3498db', '#f39c12']
+bars = ax2.bar(methods, avg_scores, color=colors, alpha=0.7, edgecolor='black')
+
+for bar in bars:
+    height = bar.get_height()
+    ax2.text(bar.get_x() + bar.get_width()/2., height,
+             f'{height:.4f}',
+             ha='center', va='bottom', fontsize=10, fontweight='bold')
+
+ax2.set_ylabel("Average NDCG@10", fontsize=12)
+ax2.set_title("Average Performance Comparison", fontsize=14, fontweight='bold')
+ax2.set_ylim([0, max(avg_scores) * 1.1])
+plt.xticks(rotation=15, ha='right')
+
+plt.tight_layout()
+plt.savefig('ranking_comparison.png', dpi=300, bbox_inches='tight')
+plt.show()
+
+print("\n✓ Visualization saved as 'ranking_comparison.png'")
+print("\n" + "="*70)
+print("ANALYSIS COMPLETE")
+print("="*70)
