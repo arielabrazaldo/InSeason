@@ -260,20 +260,6 @@ print(f"Average NDCG@10: {seasonality_only_ndcg['ndcg@10'].mean():.4f}")
 # ----------------------------
 # 15) Baseline 3: Simple weighted
 # ----------------------------
-simple_weighted_results = []
-for m, g in test_df.groupby("month"):
-    cost_norm = (g["total_cost"] - g["total_cost"].min()) / (g["total_cost"].max() - g["total_cost"].min() + 1e-9)
-    simple_score = 0.6 * g["seasonality_rate"] + 0.4 * (1 - cost_norm)
-    
-    y_true = g["relevance_score"].values.reshape(1, -1)
-    y_score = simple_score.values.reshape(1, -1)
-    score = ndcg_score(y_true, y_score, k=10)
-    simple_weighted_results.append((m, score))
-
-simple_weighted_ndcg = pd.DataFrame(simple_weighted_results, columns=["month", "ndcg@10"])
-print("\n=== Simple Weighted (60-40) ===")
-print(simple_weighted_ndcg)
-print(f"Average NDCG@10: {simple_weighted_ndcg['ndcg@10'].mean():.4f}")
 
 # ----------------------------
 # 16) Comparison table
@@ -283,7 +269,7 @@ comparison = pd.DataFrame({
     "ML Ranker": ml_ndcg["ndcg@10"],
     "Cost Only": cost_only_ndcg["ndcg@10"],
     "Seasonality Only": seasonality_only_ndcg["ndcg@10"],
-    "Simple Weighted": simple_weighted_ndcg["ndcg@10"]
+    #"Simple Weighted": simple_weighted_ndcg["ndcg@10"]
 })
 
 print("\n" + "="*70)
@@ -292,12 +278,11 @@ print("="*70)
 print(comparison.to_string(index=False))
 
 avg_comparison = pd.DataFrame({
-    "Method": ["ML Ranker", "Cost Only", "Seasonality Only", "Simple Weighted"],
+    "Method": ["ML Ranker", "Cost Only", "Seasonality Only"],
     "Avg NDCG@10": [
         comparison["ML Ranker"].mean(),
         comparison["Cost Only"].mean(),
         comparison["Seasonality Only"].mean(),
-        comparison["Simple Weighted"].mean()
     ]
 }).sort_values("Avg NDCG@10", ascending=False)
 
@@ -307,26 +292,14 @@ print("="*70)
 print(avg_comparison.to_string(index=False))
 
 ml_score = comparison["ML Ranker"].mean()
-best_baseline = comparison[["Cost Only", "Seasonality Only", "Simple Weighted"]].max(axis=1).mean()
+best_baseline = comparison[["Cost Only", "Seasonality Only"]].max(axis=1).mean()
 improvement = ((ml_score - best_baseline) / best_baseline) * 100
 print(f"\n✓ ML Ranker improves over best baseline by: {improvement:.2f}%")
 
 # ----------------------------
 # 17) Statistical significance
 # ----------------------------
-ml_scores = comparison["ML Ranker"].values
-simple_weighted_scores = comparison["Simple Weighted"].values
-t_stat, p_value = stats.ttest_rel(ml_scores, simple_weighted_scores)
 
-print(f"\n=== Statistical Significance Test ===")
-print(f"ML Ranker vs Simple Weighted (paired t-test)")
-print(f"t-statistic: {t_stat:.4f}")
-print(f"p-value: {p_value:.4f}")
-
-if p_value < 0.05:
-    print("✓ Difference is statistically significant (p < 0.05)")
-else:
-    print("✗ Difference is NOT statistically significant (p >= 0.05)")
 
 # ----------------------------
 # 18) Feature importance
@@ -348,7 +321,6 @@ fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
 ax1.plot(comparison["Month"], comparison["ML Ranker"], marker='o', linewidth=2, label="ML Ranker")
 ax1.plot(comparison["Month"], comparison["Cost Only"], marker='s', linewidth=2, label="Cost Only")
 ax1.plot(comparison["Month"], comparison["Seasonality Only"], marker='^', linewidth=2, label="Seasonality Only")
-ax1.plot(comparison["Month"], comparison["Simple Weighted"], marker='d', linewidth=2, label="Simple Weighted")
 
 ax1.set_xlabel("Month", fontsize=12)
 ax1.set_ylabel("NDCG@10", fontsize=12)
@@ -356,12 +328,11 @@ ax1.set_title("Ranking Performance Across Test Months", fontsize=14, fontweight=
 ax1.legend()
 ax1.grid(True, alpha=0.3)
 
-methods = ["ML Ranker", "Cost Only", "Seasonality Only", "Simple Weighted"]
+methods = ["ML Ranker", "Cost Only", "Seasonality Only"]
 avg_scores = [
     comparison["ML Ranker"].mean(),
     comparison["Cost Only"].mean(),
-    comparison["Seasonality Only"].mean(),
-    comparison["Simple Weighted"].mean()
+    comparison["Seasonality Only"].mean()
 ]
 
 colors = ['#2ecc71', '#e74c3c', '#3498db', '#f39c12']
